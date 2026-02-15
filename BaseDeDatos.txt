@@ -1,0 +1,9 @@
+Base de datos Postgre
+
+usuario (P.id_usuario,U.nombre Not null, U.correo Not null, NotNull.password_hash)
+
+conversacion(P.id_conversacion, tipo, titulo)
+
+conversacion_miembros(PF.id_conversacion -> conversacion, PF.nombre_usuario -> usuario, rol)
+
+mensajes (P.idmensaje, F.mensaje_conversacion-> conversacion, F.mensaje_usuario -> usuario, contenido)
