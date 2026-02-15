@@ -7,3 +7,37 @@ conversacion(P.id_conversacion, tipo, titulo)
 conversacion_miembros(PF.id_conversacion -> conversacion, PF.nombre_usuario -> usuario, rol)
 
 mensajes (P.idmensaje, F.mensaje_conversacion-> conversacion, F.mensaje_usuario -> usuario, contenido)
+
+CREATE TABLE  IF NOT EXISTS usuario(
+	id_usuario SERIAL PRIMARY KEY,
+	nombre VARCHAR(50) UNIQUE NOT NULL,
+	correo VARCHAR(100) UNIQUE NOT NULL,
+	password_hash TEXT NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS conversacion(
+	id_conversacion SERIAL PRIMARY KEY,
+	is_group BOOLEAN NOT NULL,
+	titulo VARCHAR(100) NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS conversacion_miembros(
+	id_conversacion INTEGER REFERENCES conversacion(id_conversacion) ON DELETE CASCADE,
+	id_usuario INTEGER REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+	is_admin BOOLEAN NOT NULL,
+	joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (id_conversacion,id_usuario)
+);
+
+CREATE TABLE IF NOT EXISTS mensajes(
+	id_mensaje SERIAL PRIMARY KEY,
+	id_conversacion INTEGER REFERENCES conversacion(id_conversacion) ON DELETE CASCADE,
+	id_usuario INTEGER REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+	contenido TEXT NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_mensajes_conversacion_fecha
+ON mensajes (id_conversacion, created_at DESC);
