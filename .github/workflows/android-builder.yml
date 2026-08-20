@@ -12,6 +12,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/android-builder.yml"
+      - "deploy/**"
 
 permissions:
   contents: read
