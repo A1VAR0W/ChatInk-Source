@@ -1,0 +1,91 @@
+name: android-builder
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "codex/**"
+    paths:
+      - "apps/client/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/android-builder.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build unsigned Android APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Use Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install reproducible dependencies
+        run: npm ci
+
+      - name: Build PWA
+        run: npm run build:pwa
+        env:
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+
+      - name: Create and sync Capacitor Android project
+        working-directory: apps/client
+        run: |
+          npx cap add android
+          npx cap sync android
+          npm run icons:apply:android
+
+      - name: Build unsigned release APK
+        working-directory: apps/client/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Package APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_path="apps/client/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$apk_path"
+          cp "$apk_path" Chat-Ink-android-unsigned.apk
+
+      - name: Verify APK structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Chat-Ink-android-unsigned.apk
+          unzip -l Chat-Ink-android-unsigned.apk | grep -q 'AndroidManifest.xml'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Chat-Ink-Android-unsigned
+          path: Chat-Ink-android-unsigned.apk
+          if-no-files-found: error
+          retention-days: 14
