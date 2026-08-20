@@ -1,0 +1,92 @@
+name: ios-builder
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "codex/**"
+    paths:
+      - "apps/client/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ios-builder.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios-unsigned:
+    runs-on: macos-26
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install reproducible dependencies
+        run: npm ci
+
+      - name: Build PWA
+        run: npm run build:pwa
+        env:
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+
+      - name: Create and sync Capacitor iOS project
+        working-directory: apps/client
+        run: |
+          npx cap add ios --packagemanager CocoaPods
+          npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: apps/client/ios/App
+        run: pod install --repo-update
+
+      - name: Build unsigned iPhone app from xcworkspace
+        run: |
+          xcodebuild \
+            -workspace apps/client/ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            clean build
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="build/DerivedData/Build/Products/Release-iphoneos/App.app"
+          test -d "$app_path"
+          rm -rf build/Payload
+          mkdir -p build/Payload
+          ditto "$app_path" build/Payload/App.app
+          (
+            cd build
+            ditto -c -k --sequesterRsrc --keepParent Payload ../DoodleDrop-unsigned.ipa
+          )
+
+      - name: Verify IPA structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s DoodleDrop-unsigned.ipa
+          unzip -Z1 DoodleDrop-unsigned.ipa | grep -q '^Payload/App.app/Info.plist$'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: DoodleDrop-iOS-unsigned
+          path: DoodleDrop-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14

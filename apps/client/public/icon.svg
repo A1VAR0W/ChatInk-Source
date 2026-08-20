@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DoodleDrop">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7667f5"/><stop offset="1" stop-color="#00b894"/></linearGradient></defs>
+  <rect width="512" height="512" rx="116" fill="#17162b"/>
+  <path d="M110 132h292a46 46 0 0 1 46 46v156a46 46 0 0 1-46 46H256l-86 66 18-66h-78a46 46 0 0 1-46-46V178a46 46 0 0 1 46-46Z" fill="url(#g)"/>
+  <path d="M148 278c44-75 73 55 115-26s72 48 112-35" fill="none" stroke="#fff" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
