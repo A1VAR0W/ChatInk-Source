@@ -44,6 +44,7 @@ jobs:
         run: |
           npx cap add ios --packagemanager CocoaPods
           npx cap sync ios
+          npm run icons:apply:ios
 
       - name: Install CocoaPods
         working-directory: apps/client/ios/App
@@ -73,20 +74,20 @@ jobs:
           ditto "$app_path" build/Payload/App.app
           (
             cd build
-            ditto -c -k --sequesterRsrc --keepParent Payload ../DoodleDrop-unsigned.ipa
+            ditto -c -k --sequesterRsrc --keepParent Payload ../Chat-Ink-unsigned.ipa
           )
 
       - name: Verify IPA structure
         shell: bash
         run: |
           set -euo pipefail
-          test -s DoodleDrop-unsigned.ipa
-          unzip -Z1 DoodleDrop-unsigned.ipa | grep -q '^Payload/App.app/Info.plist$'
+          test -s Chat-Ink-unsigned.ipa
+          unzip -Z1 Chat-Ink-unsigned.ipa | grep -q '^Payload/App.app/Info.plist$'
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: DoodleDrop-iOS-unsigned
-          path: DoodleDrop-unsigned.ipa
+          name: Chat-Ink-iOS-unsigned
+          path: Chat-Ink-unsigned.ipa
           if-no-files-found: error
           retention-days: 14

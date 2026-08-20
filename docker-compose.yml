@@ -8,7 +8,7 @@ services:
     tmpfs:
       - /tmp/pictochat:rw,noexec,nosuid,size=256m,uid=10001,gid=10001,mode=0700
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     environment:
       NODE_ENV: production
       TOKEN_SECRET: ${TOKEN_SECRET:-local-docker-secret-change-before-production-123}

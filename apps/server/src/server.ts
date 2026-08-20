@@ -32,4 +32,4 @@ process.once('unhandledRejection', (error) => {
 
 await application.app.listen({ host: config.host, port: config.port });
 application.startCleanup();
-application.app.log.info({ port: config.port }, 'DoodleDrop listening');
+application.app.log.info({ port: config.port }, 'Chat-Ink listening');

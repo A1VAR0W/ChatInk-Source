@@ -7,10 +7,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'DoodleDrop — chat efimero',
-        short_name: 'DoodleDrop',
+        name: 'Chat-Ink — chat efimero',
+        short_name: 'Chat-Ink',
         description: 'Salas temporales para texto, dibujos y archivos.',
         theme_color: '#6c5ce7',
         background_color: '#f5f3ff',
@@ -19,8 +19,8 @@ export default defineConfig({
         scope: '/',
         orientation: 'any',
         icons: [
-          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
         ],
       },
       workbox: {

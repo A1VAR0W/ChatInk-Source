@@ -1,0 +1,12 @@
+[Unit]
+Description=Comprobar actualizaciones de Chat-Ink cada cinco minutos
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+Persistent=true
+Unit=pictochat-update.service
+
+[Install]
+WantedBy=timers.target
