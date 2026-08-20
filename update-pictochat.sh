@@ -4,7 +4,7 @@ set -Eeuo pipefail
 APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$APP_DIR"
 
-DEPLOY_BRANCH="${PICTOCHAT_BRANCH:-chat-ink-deploy}"
+DEPLOY_BRANCH="${PICTOCHAT_BRANCH:-main}"
 
 SSH_KEY="${PICTOCHAT_SSH_KEY:-/home/server/.ssh/id_ed25519}"
 SSH_KNOWN_HOSTS="${PICTOCHAT_KNOWN_HOSTS:-/home/server/.ssh/known_hosts}"
