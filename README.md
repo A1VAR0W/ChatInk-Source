@@ -83,7 +83,7 @@ apps/client        Ionic React, PWA, Canvas y estado de sesión
 apps/server        Fastify, Socket.IO, seguridad y almacenamiento temporal
 packages/shared    Esquemas Zod, eventos y contratos compartidos
 docs               Protocolo, amenazas y ciclo de vida de datos
-.github/workflows  ios-builder reproducible y sin firma
+.github/workflows  ios-builder y android-builder reproducibles y sin firma
 ```
 
 El cliente obtiene un JWT de sesión temporal y, al crear o entrar en una sala, un JWT limitado a esa sala y rol. Todas las acciones Socket.IO, subidas y descargas vuelven a autorizar estos tokens. El servidor asigna identificador, secuencia y tiempo a cada mensaje; `clientId` evita duplicados al reconectar.
@@ -129,6 +129,18 @@ Para descargarlo:
 3. En **Artifacts**, descarga `Chat-Ink-iOS-unsigned` y descomprime el ZIP descargado por GitHub.
 
 Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. Para obtener uno instalable hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil de aprovisionamiento compatible con `com.doodledrop.app` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
+
+## Obtener el APK desde GitHub Actions
+
+El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar `Chat-Ink-android-unsigned.apk`. El APK se publica durante 14 días como artefacto `Chat-Ink-Android-unsigned`.
+
+Para descargarlo:
+
+1. Abre la pestaña **Actions** del repositorio.
+2. Entra en **android-builder** y selecciona la ejecución de tu commit.
+3. En **Artifacts**, descarga `Chat-Ink-Android-unsigned` y descomprime el ZIP descargado por GitHub.
+
+Este APK no está firmado. Para instalarlo en un dispositivo Android se necesita firmarlo con una clave de distribución, o habilitar la instalación de aplicaciones desconocidas para pruebas locales.
 
 Antes de compilar una app nativa funcional, configura en **Settings → Secrets and variables → Actions → Variables**:
 
