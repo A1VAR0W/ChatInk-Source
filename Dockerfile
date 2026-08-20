@@ -13,7 +13,7 @@ RUN npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
-LABEL org.opencontainers.image.source="https://github.com/A1VAR0W/PictoChat" \
+LABEL org.opencontainers.image.source="https://github.com/A1VAR0W/Chat-Ink" \
       org.opencontainers.image.title="Chat-Ink" \
       org.opencontainers.image.description="Chat efimero de texto, dibujos y archivos"
 ENV NODE_ENV=production \
