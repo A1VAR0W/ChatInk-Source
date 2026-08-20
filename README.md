@@ -1,6 +1,6 @@
-# DoodleDrop
+# Chat-Ink
 
-DoodleDrop es un MVP de chat efímero inspirado en la inmediatez de los chats de consolas portátiles, con identidad visual y recursos propios. Permite crear salas y compartir texto, dibujos vectoriales y archivos temporales en tiempo real desde web/PWA, Android e iOS.
+Chat-Ink es un MVP de chat efímero inspirado en la inmediatez de los chats de consolas portátiles, con identidad visual y recursos propios. Permite crear salas y compartir texto, dibujos vectoriales y archivos temporales en tiempo real desde web/PWA, Android e iOS.
 
 No usa base de datos. Reiniciar el servidor elimina todas las salas y conversaciones. No implementa ni afirma cifrado de extremo a extremo.
 
@@ -114,17 +114,19 @@ docker compose up --build -d
 
 El contenedor se ejecuta sin privilegios, con sistema de archivos de solo lectura y un `tmpfs` temporal. La imagen sirve el PWA y API desde el mismo origen en el puerto 3001.
 
+Para publicarlo desde un servidor doméstico con dominio, HTTPS automático, GHCR y actualizaciones con rollback, consulta [despliegue en servidor casero](docs/DEPLOY_HOME_SERVER.md).
+
 Un despliegue horizontal necesita afinidad de sesión y un coordinador compartido para eventos/presencia. Como los datos deben seguir siendo efímeros, ese coordinador tendría que configurarse sin persistencia y con TTL coherentes. El MVP mantiene deliberadamente una sola instancia.
 
 ## Obtener el IPA desde GitHub Actions
 
-El workflow `.github/workflows/ios-builder.yml` usa `macos-26`, instala las dependencias de forma reproducible, genera el proyecto Capacitor con CocoaPods y compila `App.xcworkspace` para iPhone. Después crea y verifica `DoodleDrop-unsigned.ipa` y lo publica durante 14 días como artefacto `DoodleDrop-iOS-unsigned`.
+El workflow `.github/workflows/ios-builder.yml` usa `macos-26`, instala las dependencias de forma reproducible, genera el proyecto Capacitor con CocoaPods y compila `App.xcworkspace` para iPhone. Después crea y verifica `Chat-Ink-unsigned.ipa` y lo publica durante 14 días como artefacto `Chat-Ink-iOS-unsigned`.
 
 Para descargarlo:
 
 1. Abre la pestaña **Actions** del repositorio.
 2. Entra en **ios-builder** y selecciona la ejecución de tu commit.
-3. En **Artifacts**, descarga `DoodleDrop-iOS-unsigned` y descomprime el ZIP descargado por GitHub.
+3. En **Artifacts**, descarga `Chat-Ink-iOS-unsigned` y descomprime el ZIP descargado por GitHub.
 
 Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. Para obtener uno instalable hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil de aprovisionamiento compatible con `com.doodledrop.app` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
 

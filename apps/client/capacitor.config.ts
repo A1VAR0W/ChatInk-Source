@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.doodledrop.app',
-  appName: 'DoodleDrop',
+  appName: 'Chat-Ink',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

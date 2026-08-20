@@ -1,0 +1,14 @@
+[Unit]
+Description=Actualizar Chat-Ink desde GitHub Container Registry
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/pictochat/update.sh
+TimeoutStartSec=10min
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

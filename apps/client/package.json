@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "icons:apply": "node scripts/apply-native-icons.mjs all",
+    "icons:apply:android": "node scripts/apply-native-icons.mjs android",
+    "icons:apply:ios": "node scripts/apply-native-icons.mjs ios",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build -w @pictochat/shared",

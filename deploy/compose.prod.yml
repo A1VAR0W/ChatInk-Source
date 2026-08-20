@@ -1,0 +1,93 @@
+name: pictochat
+
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE es obligatorio}
+    init: true
+    restart: unless-stopped
+    read_only: true
+    stop_grace_period: 20s
+    tmpfs:
+      - /tmp/pictochat:rw,noexec,nosuid,size=256m,uid=10001,gid=10001,mode=0700
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3001
+      TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET es obligatorio}
+      ALLOWED_ORIGINS: https://${APP_DOMAIN:?APP_DOMAIN es obligatorio}
+      TRUST_PROXY: "true"
+      SERVE_CLIENT: "true"
+      CLIENT_DIST: apps/client/dist
+      TEMP_ROOT: /tmp/pictochat
+      ROOM_MAX_AGE_MS: ${ROOM_MAX_AGE_MS:-86400000}
+      ROOM_EMPTY_TTL_MS: ${ROOM_EMPTY_TTL_MS:-600000}
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-26214400}
+    expose:
+      - "3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - app_internal
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2.11.4-alpine}
+    restart: unless-stopped
+    read_only: true
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN es obligatorio}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL es obligatorio}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    networks:
+      - app_internal
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  app_internal:
+    internal: true
+  edge:

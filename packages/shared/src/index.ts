@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const APP_NAME = 'DoodleDrop';
+export const APP_NAME = 'Chat-Ink';
 export const ROOM_CODE_LENGTH = 10;
 
 export const aliasSchema = z
