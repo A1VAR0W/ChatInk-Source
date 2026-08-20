@@ -63,12 +63,16 @@ jobs:
           npx cap sync android
           npm run icons:apply:android
 
+      - name: Make Gradle wrapper executable
+        working-directory: apps/client/android
+        run: chmod +x ./gradlew
+
       # A release APK without a signature cannot be installed on Android.
       # The debug variant is signed automatically with the Android debug key,
       # which makes this CI artifact directly installable on a phone.
       - name: Build signed debug APK
         working-directory: apps/client/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew clean assembleDebug --no-daemon --stacktrace
 
       - name: Package APK
         shell: bash
@@ -89,7 +93,7 @@ jobs:
           "$apksigner_path" verify --verbose Chat-Ink-android-debug.apk
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: Chat-Ink-Android-debug
           path: Chat-Ink-android-debug.apk
