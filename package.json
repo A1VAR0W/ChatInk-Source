@@ -1,0 +1,46 @@
+{
+  "name": "pictochat-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Chat efimero de texto, dibujo y archivos para web, Android e iOS.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "predev": "npm run build -w @pictochat/shared",
+    "dev": "concurrently -n shared,server,client -c magenta,cyan,green \"npm:dev:shared\" \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:shared": "npm run dev -w @pictochat/shared",
+    "dev:server": "npm run dev -w @pictochat/server",
+    "dev:client": "npm run dev -w @pictochat/client",
+    "build": "npm run build -w @pictochat/shared && npm run build -w @pictochat/server && npm run build -w @pictochat/client",
+    "build:pwa": "npm run build -w @pictochat/shared && npm run build -w @pictochat/client",
+    "pretest": "npm run build -w @pictochat/shared",
+    "test": "npm run test -w @pictochat/shared && npm run test -w @pictochat/server && npm run test -w @pictochat/client",
+    "test:integration": "npm run test:integration -w @pictochat/server",
+    "test:e2e": "npm run test:e2e -w @pictochat/client",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "npm run typecheck -w @pictochat/shared && npm run typecheck -w @pictochat/server && npm run typecheck -w @pictochat/client",
+    "clean": "rimraf apps/client/dist apps/server/dist packages/shared/dist apps/client/coverage apps/server/coverage apps/client/tsconfig.tsbuildinfo apps/server/tsconfig.tsbuildinfo apps/server/tsconfig.build.tsbuildinfo packages/shared/tsconfig.tsbuildinfo packages/shared/tsconfig.build.tsbuildinfo",
+    "cap:sync": "npm run build:pwa && npm exec -w @pictochat/client cap sync",
+    "cap:add:android": "npm run build:pwa && npm exec -w @pictochat/client cap add android",
+    "cap:add:ios": "npm run build:pwa && npm exec -w @pictochat/client cap add ios -- --packagemanager CocoaPods",
+    "android": "npm run cap:sync && npm exec -w @pictochat/client cap open android",
+    "ios": "npm run cap:sync && npm exec -w @pictochat/client cap open ios"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.0.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.11.0",
+    "rimraf": "^6.1.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0"
+  }
+}

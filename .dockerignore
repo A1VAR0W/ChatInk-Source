@@ -1,0 +1,17 @@
+node_modules
+**/dist
+**/coverage
+.git
+.github
+.idea
+.vscode
+**/.env
+**/.env.*
+!**/.env.example
+**/__pycache__
+**/*.py[cod]
+*.log
+apps/client/android
+apps/client/ios
+playwright-report
+test-results

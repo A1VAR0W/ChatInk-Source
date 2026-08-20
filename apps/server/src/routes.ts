@@ -1,0 +1,181 @@
+import { createReadStream, createWriteStream } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { stat } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
+import {
+  aliasSchema,
+  createRoomSchema,
+  joinRoomSchema,
+  roomCodeSchema,
+  type ApiError,
+  type RoomAccessResponse,
+  type SessionResponse,
+  type UploadResponse,
+} from '@pictochat/shared';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import type { AppConfig } from './config.js';
+import { DomainError, type RoomService } from './domain/room-service.js';
+import type { MemoryRateLimiter } from './security/rate-limiter.js';
+import { bearerToken, TokenError, type TokenService } from './security/tokens.js';
+import { detectAllowedMime } from './storage/file-validation.js';
+import { contentDisposition, safeDownloadName, type TempStorage } from './storage/temp-storage.js';
+import type { AntivirusScanner } from './storage/virus-scanner.js';
+
+const createSessionSchema = z.object({ alias: aliasSchema });
+const routeRoomCodeSchema = z.object({ code: roomCodeSchema });
+const routeRoomFileSchema = z.object({ roomId: z.uuid(), fileId: z.uuid() });
+
+interface Services {
+  config: AppConfig;
+  rooms: RoomService;
+  tokens: TokenService;
+  storage: TempStorage;
+  uploads: MemoryRateLimiter;
+  antivirus: AntivirusScanner;
+}
+
+function validationError(error: z.ZodError): ApiError {
+  const details: Record<string, string[]> = {};
+  for (const [field, messages] of Object.entries(error.flatten().fieldErrors)) {
+    const textMessages = Array.isArray(messages) ? messages.filter((message): message is string => typeof message === 'string') : [];
+    if (textMessages.length > 0) details[field] = textMessages;
+  }
+  return {
+    error: 'Los datos enviados no son validos',
+    code: 'VALIDATION_ERROR',
+    details,
+  };
+}
+
+async function authenticateSession(request: FastifyRequest, tokens: TokenService) {
+  return tokens.verifySession(bearerToken(request.headers.authorization));
+}
+
+async function authenticateRoom(request: FastifyRequest, tokens: TokenService, roomId: string) {
+  const claims = await tokens.verifyRoom(bearerToken(request.headers.authorization));
+  if (claims.rid !== roomId) throw new TokenError('La autorizacion no corresponde a esta sala');
+  return claims;
+}
+
+export function registerRoutes(app: FastifyInstance, services: Services): void {
+  const { config, rooms, tokens, storage, uploads, antivirus } = services;
+
+  app.get('/api/health', () => ({ status: 'ok', ephemeral: true, timestamp: Date.now() }));
+
+  app.post('/api/sessions', async (request, reply): Promise<SessionResponse | ApiError> => {
+    const parsed = createSessionSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
+    const session = await tokens.createSession(parsed.data.alias);
+    return { ...session, alias: parsed.data.alias };
+  });
+
+  app.get('/api/rooms/public', () => ({ rooms: rooms.publicRooms() }));
+
+  app.post('/api/rooms', async (request, reply): Promise<RoomAccessResponse | ApiError> => {
+    const session = await authenticateSession(request, tokens);
+    if (!uploads.consume(`create-room:${session.sid}`, config.createRoomRateLimitPerHour, 3_600_000)) {
+      throw new DomainError('RATE_LIMIT', 'Has alcanzado el limite temporal de creacion de salas', 429);
+    }
+    const parsed = createRoomSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
+    const room = await rooms.createRoom(session.sid, session.alias, {
+      name: parsed.data.name,
+      visibility: parsed.data.visibility,
+      ...(parsed.data.password === undefined ? {} : { password: parsed.data.password }),
+      ...(parsed.data.maxParticipants === undefined ? {} : { maxParticipants: parsed.data.maxParticipants }),
+    });
+    const roomToken = await tokens.createRoomToken(session.sid, room.id, 'creator');
+    return reply.code(201).send({ room, roomToken, role: 'creator' });
+  });
+
+  app.post('/api/rooms/:code/join', async (request, reply): Promise<RoomAccessResponse | ApiError> => {
+    const session = await authenticateSession(request, tokens);
+    const params = routeRoomCodeSchema.safeParse(request.params);
+    const body = joinRoomSchema.safeParse(request.body ?? {});
+    if (!params.success) return reply.code(400).send(validationError(params.error));
+    if (!body.success) return reply.code(400).send(validationError(body.error));
+    const access = await rooms.authorizeJoin(params.data.code, session.sid, body.data.password);
+    const roomToken = await tokens.createRoomToken(session.sid, access.room.id, access.role);
+    return { ...access, roomToken };
+  });
+
+  app.post('/api/rooms/:roomId/files', async (request, reply): Promise<UploadResponse | ApiError> => {
+    const params = z.object({ roomId: z.uuid() }).parse(request.params);
+    const claims = await authenticateRoom(request, tokens, params.roomId);
+    if (!rooms.isParticipant(params.roomId, claims.sid)) throw new DomainError('NOT_IN_ROOM', 'Ya no formas parte de la sala', 403);
+    if (!uploads.consume(`upload:${claims.sid}`, config.uploadRateLimitPerMinute)) {
+      throw new DomainError('RATE_LIMIT', 'Has alcanzado el limite temporal de subidas', 429);
+    }
+
+    const part = await request.file({ limits: { fileSize: config.maxFileBytes, files: 1, fields: 3 } });
+    if (part === undefined) throw new DomainError('FILE_REQUIRED', 'Selecciona un archivo', 400);
+    const clientIdField = part.fields.clientId;
+    const firstClientIdField = Array.isArray(clientIdField) ? clientIdField[0] : clientIdField;
+    const clientIdRaw = firstClientIdField !== undefined && 'value' in firstClientIdField ? firstClientIdField.value : undefined;
+    const clientId = z.uuid().parse(clientIdRaw);
+    const fileId = randomUUID();
+    const partialPath = await storage.partialPath(params.roomId, fileId);
+    let finalPath: string | undefined;
+    try {
+      await pipeline(part.file, createWriteStream(partialPath, { flags: 'wx', mode: 0o600 }));
+      if (part.file.truncated) throw new DomainError('FILE_TOO_LARGE', 'El archivo supera el limite permitido', 413);
+      const metadata = await stat(partialPath);
+      if (metadata.size === 0) throw new DomainError('EMPTY_FILE', 'El archivo esta vacio', 400);
+      if (metadata.size > config.maxFileBytes) throw new DomainError('FILE_TOO_LARGE', 'El archivo supera el limite permitido', 413);
+      const mime = await detectAllowedMime(partialPath);
+      if (mime === undefined) throw new DomainError('UNSUPPORTED_FILE', 'El tipo real del archivo no esta permitido', 415);
+      if (await antivirus.scan(partialPath) === 'infected') throw new DomainError('MALWARE_DETECTED', 'El archivo no ha superado el analisis de seguridad', 422);
+      finalPath = await storage.finalize(partialPath, params.roomId, fileId);
+      const session = await tokens.verifySession(String(request.headers['x-session-token'] ?? ''));
+      if (session.sid !== claims.sid) throw new TokenError('Las credenciales no coinciden');
+      const message = rooms.appendFileMessage(params.roomId, claims.sid, session.alias, clientId, {
+        id: fileId,
+        name: safeDownloadName(part.filename),
+        mime,
+        size: metadata.size,
+        path: finalPath,
+        createdAt: Date.now(),
+      });
+      return reply.code(201).send({ message });
+    } catch (error) {
+      await storage.removeFile(finalPath ?? partialPath);
+      throw error;
+    }
+  });
+
+  app.get('/api/rooms/:roomId/files/:fileId', async (request, reply) => {
+    const params = routeRoomFileSchema.parse(request.params);
+    const claims = await authenticateRoom(request, tokens, params.roomId);
+    if (!rooms.isParticipant(params.roomId, claims.sid)) throw new DomainError('NOT_IN_ROOM', 'Ya no formas parte de la sala', 403);
+    const file = rooms.file(params.roomId, params.fileId);
+    reply.header('Content-Type', file.mime);
+    reply.header('Content-Length', file.size);
+    reply.header('Content-Disposition', contentDisposition(file.name));
+    reply.header('Cache-Control', 'private, no-store, max-age=0');
+    return reply.send(createReadStream(file.path));
+  });
+}
+
+export function registerErrorHandler(app: FastifyInstance): void {
+  app.setErrorHandler((error, _request, reply: FastifyReply) => {
+    if (error instanceof z.ZodError) {
+      void reply.code(400).send(validationError(error));
+      return;
+    }
+    if (error instanceof DomainError) {
+      void reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      return;
+    }
+    if (error instanceof TokenError) {
+      void reply.code(401).send({ error: 'No autorizado', code: 'UNAUTHORIZED' });
+      return;
+    }
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'FST_REQ_FILE_TOO_LARGE') {
+      void reply.code(413).send({ error: 'El archivo supera el limite permitido', code: 'FILE_TOO_LARGE' });
+      return;
+    }
+    app.log.error({ err: error }, 'request failed');
+    void reply.code(500).send({ error: 'Se ha producido un error interno', code: 'INTERNAL_ERROR' });
+  });
+}
