@@ -1,5 +1,7 @@
 name: ios-builder
 
+run-name: Chat-Ink iOS build (${{ github.sha }})
+
 on:
   workflow_dispatch:
   push:
