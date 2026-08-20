@@ -14,7 +14,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3001
       TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET es obligatorio}
-      ALLOWED_ORIGINS: https://${APP_DOMAIN:?APP_DOMAIN es obligatorio}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS es obligatorio}
       TRUST_PROXY: "true"
       SERVE_CLIENT: "true"
       CLIENT_DIST: apps/client/dist
