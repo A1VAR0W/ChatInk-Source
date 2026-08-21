@@ -4,6 +4,20 @@ Chat-Ink es un MVP de chat efímero inspirado en la inmediatez de los chats de c
 
 No usa base de datos. Reiniciar el servidor elimina todas las salas y conversaciones. No implementa ni afirma cifrado de extremo a extremo.
 
+## Entornos
+
+Desarrollo y Producción están aislados por configuración, contenedores, secretos y flujo de GitHub:
+
+| | Desarrollo | Producción |
+| --- | --- | --- |
+| Rama/entorno GitHub | `develop`, `codex/**` → `development` | `main` → `production` |
+| Configuración local | `.env.development` | `deploy/.env.production` |
+| Docker Compose | `docker-compose.yml`, proyecto `pictochat-development` | `deploy/compose.prod.yml`, proyecto `pictochat` |
+| Cliente | Vite con hot reload en `:5173` | PWA compilado servido por Node/Caddy |
+| Imagen GHCR | `:development` desde `develop` | `:latest` desde `main` |
+
+Los archivos con valores reales están ignorados por Git. Solo se versionan las plantillas `*.example`; no reutilices el `TOKEN_SECRET` de un entorno en el otro. Consulta [la guía completa de entornos](docs/ENVIRONMENTS.md).
+
 ## Puesta en marcha en Windows con Docker
 
 Requisitos: Docker Desktop abierto. En este equipo Docker está instalado en el perfil del usuario; si una consola abierta antes de instalarlo responde que `docker` no existe, ciérrala y abre otra. También puedes habilitarlo en la sesión actual de PowerShell:
@@ -14,19 +28,16 @@ $env:Path = "$dockerHome\resources\bin;$dockerHome\resources\cli-plugins;$env:Pa
 docker version
 ```
 
-Prepara la configuración local, sustituye el secreto de ejemplo y arranca la aplicación completa:
+El compose de la raíz es exclusivamente de Desarrollo, usa un secreto local conocido y ofrece recarga automática:
 
 ```powershell
-Copy-Item .env.example .env
-$secret = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-(Get-Content .env) -replace '^TOKEN_SECRET=.*$', "TOKEN_SECRET=$secret" | Set-Content .env
 docker compose up --build -d
 docker compose ps
 Invoke-RestMethod http://localhost:3001/api/health
-Start-Process http://localhost:3001
+Start-Process http://localhost:5173
 ```
 
-El contenedor sirve el PWA, la API HTTP y Socket.IO desde `http://localhost:3001`. Para consultar registros y detenerlo:
+Vite sirve el cliente en `http://localhost:5173`; la API y Socket.IO escuchan en `http://localhost:3001`. Para consultar registros y detenerlo:
 
 ```powershell
 docker compose logs -f
@@ -49,11 +60,11 @@ Requisitos: Node.js 22+ y npm 10+.
 
 ```powershell
 npm ci
-Copy-Item .env.example .env
+Copy-Item .env.development.example .env.development
 npm run dev
 ```
 
-Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. En esta modalidad, cambia también `TOKEN_SECRET` en `.env` antes de exponer el servidor fuera de tu máquina.
+Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. `npm run dev` solo carga `.env.development` y nunca la configuración de Producción. El secreto incluido es deliberadamente local: no expongas este servidor a Internet.
 
 ## Comandos
 
@@ -62,7 +73,9 @@ Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. En esta
 | `npm run dev` | Tipos compartidos, API y cliente en modo watch |
 | `npm run dev:server` / `dev:client` | Desarrollo separado |
 | `npm run build` | Build de tipos, servidor y PWA |
+| `npm run build:production` | Build cargando `.env.production` si existe |
 | `npm run build:pwa` | Bundle web instalable |
+| `npm run docker:dev` / `docker:dev:down` | Arranca/detiene el stack Docker de Desarrollo |
 | `npm test` | Pruebas unitarias, integración HTTP y dos clientes Socket.IO |
 | `npm run test:e2e` | Playwright responsive y flujo de dos navegadores |
 | `npm run lint` | ESLint estricto |
@@ -107,12 +120,12 @@ La garantía es a nivel de aplicación. No equivale a borrado forense del soport
 El proceso sirve HTTP y WebSocket detrás de un proxy/ingress. En producción termina TLS allí, fuerza HTTPS, redirige HTTP, configura HSTS y reenvía WebSocket; el navegador usa entonces HTTPS/WSS. `TRUST_PROXY=true` solo debe activarse detrás de un proxy de confianza. No se implementa E2EE: el servidor puede inspeccionar y validar el contenido antes de distribuirlo.
 
 ```powershell
-$env:TOKEN_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-$env:ALLOWED_ORIGINS = "https://chat.example.com"
-docker compose up --build -d
+Copy-Item deploy/.env.production.example deploy/.env.production
+# Edita deploy/.env.production y genera TOKEN_SECRET con al menos 32 bytes aleatorios.
+docker compose --env-file deploy/.env.production -f deploy/compose.prod.yml config
 ```
 
-El contenedor se ejecuta sin privilegios, con sistema de archivos de solo lectura y un `tmpfs` temporal. La imagen sirve el PWA y API desde el mismo origen en el puerto 3001.
+Producción no usa el compose de la raíz. El contenedor se ejecuta sin privilegios, con sistema de archivos de solo lectura y un `tmpfs` temporal. La imagen sirve el PWA y API desde el mismo origen en el puerto 3001.
 
 Para publicarlo desde un servidor doméstico con dominio, HTTPS automático, GHCR y actualizaciones con rollback, consulta [despliegue en servidor casero](docs/DEPLOY_HOME_SERVER.md).
 
@@ -132,22 +145,22 @@ Este IPA no está firmado y, por tanto, no puede instalarse directamente en un i
 
 ## Obtener el APK desde GitHub Actions
 
-El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar `Chat-Ink-android-unsigned.apk`. El APK se publica durante 14 días como artefacto `Chat-Ink-Android-unsigned`.
+El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar un APK `release`. Después lo alinea para páginas de 16 KiB, lo firma con la keystore privada de GitHub, verifica la firma y publica también su SHA-256. El artefacto `Chat-Ink-Android-release` se conserva durante 14 días.
 
 Para descargarlo:
 
 1. Abre la pestaña **Actions** del repositorio.
 2. Entra en **android-builder** y selecciona la ejecución de tu commit.
-3. En **Artifacts**, descarga `Chat-Ink-Android-unsigned` y descomprime el ZIP descargado por GitHub.
+3. En **Artifacts**, descarga `Chat-Ink-Android-release` y descomprime el ZIP descargado por GitHub.
 
-Este APK no está firmado. Para instalarlo en un dispositivo Android se necesita firmarlo con una clave de distribución, o habilitar la instalación de aplicaciones desconocidas para pruebas locales.
+La firma requiere estos secretos de Actions a nivel de repositorio: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`. El workflow nunca guarda la keystore en un artefacto y la elimina del runner incluso si falla. Para instalar el APK fuera de Google Play puede ser necesario habilitar temporalmente la instalación desde la aplicación que abre el archivo.
 
-Antes de compilar una app nativa funcional, configura en **Settings → Secrets and variables → Actions → Variables**:
+Antes de compilar una app nativa funcional, configura las variables por separado en **Settings → Environments → development/production → Environment variables**:
 
 - `PUBLIC_SERVER_URL`: URL HTTPS pública de la API, por ejemplo `https://api.example.com`.
 - `PUBLIC_APP_URL`: URL HTTPS pública del PWA, usada en los enlaces de invitación.
 
-Sin `PUBLIC_SERVER_URL`, el IPA se compila, pero la app nativa no puede encontrar la API desde un dispositivo. Estas dos variables son públicas y se incorporan al JavaScript; nunca pongas certificados o contraseñas en ellas.
+Cada rama toma las variables de su propio entorno GitHub. Sin `PUBLIC_SERVER_URL`, el IPA se compila, pero la app nativa no puede encontrar la API desde un dispositivo. Estas dos variables son públicas y se incorporan al JavaScript; nunca pongas certificados o contraseñas en ellas.
 
 Capacitor 8 usa Swift Package Manager por defecto, pero este workflow selecciona CocoaPods deliberadamente para producir y compilar `App.xcworkspace`, tal como exige el flujo `ios-builder` de este proyecto.
 
@@ -168,7 +181,7 @@ Los archivos históricos `backend/`, `requirements.txt` y `BaseDeDatos.txt` pert
 
 ## Formatos y límites
 
-Se admiten JPEG, PNG, GIF, WebP, AVIF, MP4, WebM, PDF, ZIP, documentos OOXML/ODF y texto UTF-8 reconocido. Los límites de participantes, mensajes, conexiones, creación, subida, tamaño y caducidad están centralizados en `.env.example`. El navegador hace una comprobación anticipada del tamaño y el servidor vuelve a imponerla durante el streaming.
+Se admiten JPEG, PNG, GIF, WebP, AVIF, MP4, WebM, PDF, ZIP, documentos OOXML/ODF y texto UTF-8 reconocido. Los límites de participantes, mensajes, conexiones, creación, subida, tamaño y caducidad están centralizados en las plantillas `.env.*.example`. El navegador hace una comprobación anticipada del tamaño y el servidor vuelve a imponerla durante el streaming.
 
 ## Limitaciones conocidas
 

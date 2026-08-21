@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - develop
       - "codex/**"
     paths:
       - "apps/client/**"
@@ -20,6 +21,8 @@ jobs:
   build-ios-unsigned:
     runs-on: macos-26
     timeout-minutes: 35
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6

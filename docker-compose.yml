@@ -1,29 +1,39 @@
+name: pictochat-development
+
 services:
-  doodledrop:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     init: true
-    read_only: true
-    tmpfs:
-      - /tmp/pictochat:rw,noexec,nosuid,size=256m,uid=10001,gid=10001,mode=0700
     ports:
       - "3001:3001"
+      - "5173:5173"
     environment:
-      NODE_ENV: production
-      TOKEN_SECRET: ${TOKEN_SECRET:-local-docker-secret-change-before-production-123}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001}
-      TRUST_PROXY: ${TRUST_PROXY:-false}
-      SERVE_CLIENT: "true"
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3001
+      TOKEN_SECRET: development-only-secret-change-me-now
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      TRUST_PROXY: "false"
+      SERVE_CLIENT: "false"
       CLIENT_DIST: apps/client/dist
-      TEMP_ROOT: /tmp/pictochat
-      ROOM_MAX_AGE_MS: ${ROOM_MAX_AGE_MS:-86400000}
-      ROOM_EMPTY_TTL_MS: ${ROOM_EMPTY_TTL_MS:-600000}
-      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-26214400}
+      TEMP_ROOT: /tmp/pictochat-development
+      VITE_SERVER_URL: ""
+      VITE_PUBLIC_APP_URL: http://localhost:5173
+      VITE_MAX_FILE_BYTES: 26214400
+    volumes:
+      - .:/app
+      - development_node_modules:/app/node_modules
+    tmpfs:
+      - /tmp/pictochat-development:rw,noexec,nosuid,size=256m
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    restart: unless-stopped
+      start_period: 30s
+
+volumes:
+  development_node_modules:

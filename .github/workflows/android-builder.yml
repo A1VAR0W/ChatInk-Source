@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - develop
       - "codex/**"
     paths:
       - "apps/client/**"
@@ -18,9 +19,11 @@ permissions:
 
 jobs:
   build-android:
-    name: Build installable Android APK
+    name: Build and sign Android release APK
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -67,35 +70,104 @@ jobs:
         working-directory: apps/client/android
         run: chmod +x ./gradlew
 
-      # A release APK without a signature cannot be installed on Android.
-      # The debug variant is signed automatically with the Android debug key,
-      # which makes this CI artifact directly installable on a phone.
-      - name: Build signed debug APK
+      - name: Validate Android signing secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for secret_name in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              missing+=("$secret_name")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Faltan secretos de firma: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Decode release keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          keystore_path="$RUNNER_TEMP/chat-ink-release.keystore"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          chmod 600 "$keystore_path"
+          printf 'ANDROID_KEYSTORE_PATH=%s\n' "$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Build unsigned release APK
         working-directory: apps/client/android
-        run: ./gradlew clean assembleDebug --no-daemon --stacktrace
+        run: ./gradlew clean assembleRelease --no-daemon --stacktrace
 
-      - name: Package APK
+      - name: Align and sign release APK
         shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          apk_path="apps/client/android/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$apk_path"
-          cp "$apk_path" Chat-Ink-android-debug.apk
+          unsigned_apk="apps/client/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          aligned_apk="$RUNNER_TEMP/Chat-Ink-android-release-aligned.apk"
+          signed_apk="Chat-Ink-android-release.apk"
+          test -s "$unsigned_apk"
 
-      - name: Verify APK structure
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s Chat-Ink-android-debug.apk
-          unzip -l Chat-Ink-android-debug.apk | grep -q 'AndroidManifest.xml'
-          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          zipalign_path="$build_tools_dir/zipalign"
+          apksigner_path="$build_tools_dir/apksigner"
+          test -x "$zipalign_path"
           test -x "$apksigner_path"
-          "$apksigner_path" verify --verbose Chat-Ink-android-debug.apk
 
-      - name: Upload artifact
+          "$zipalign_path" -P 16 -f -v 4 "$unsigned_apk" "$aligned_apk"
+          "$apksigner_path" sign \
+            --ks "$ANDROID_KEYSTORE_PATH" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEY_PASSWORD \
+            --out "$signed_apk" \
+            "$aligned_apk"
+          rm -f "$aligned_apk"
+
+      - name: Verify APK signature and alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          signed_apk="Chat-Ink-android-release.apk"
+          test -s "$signed_apk"
+          unzip -l "$signed_apk" | grep -q 'AndroidManifest.xml'
+
+          build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          zipalign_path="$build_tools_dir/zipalign"
+          apksigner_path="$build_tools_dir/apksigner"
+          test -x "$zipalign_path"
+          test -x "$apksigner_path"
+          "$zipalign_path" -c -P 16 -v 4 "$signed_apk"
+          "$apksigner_path" verify --verbose --print-certs "$signed_apk"
+          sha256sum "$signed_apk" > "$signed_apk.sha256"
+
+      - name: Remove decoded keystore
+        if: always()
+        shell: bash
+        run: rm -f "${ANDROID_KEYSTORE_PATH:-$RUNNER_TEMP/chat-ink-release.keystore}"
+
+      - name: Upload signed release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Chat-Ink-Android-debug
-          path: Chat-Ink-android-debug.apk
+          name: Chat-Ink-Android-release
+          path: |
+            Chat-Ink-android-release.apk
+            Chat-Ink-android-release.apk.sha256
           if-no-files-found: error
           retention-days: 14

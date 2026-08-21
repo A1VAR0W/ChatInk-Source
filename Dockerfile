@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS dependencies
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -7,6 +7,17 @@ COPY apps/server/package.json apps/server/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci
 
+FROM dependencies AS development
+ENV NODE_ENV=development \
+    HOST=0.0.0.0 \
+    PORT=3001 \
+    SERVE_CLIENT=false \
+    TEMP_ROOT=/tmp/pictochat-development
+COPY . .
+EXPOSE 3001 5173
+CMD ["npm", "run", "dev"]
+
+FROM dependencies AS builder
 COPY . .
 RUN npm run build
 RUN npm prune --omit=dev
