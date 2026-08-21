@@ -7,6 +7,7 @@ import type {
   RoomState,
   ServerToClientEvents,
   SessionResponse,
+  TypingParticipant,
 } from '@pictochat/shared';
 import { io as createClient, type Socket } from 'socket.io-client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -31,6 +32,10 @@ async function connectClient(url: string, session: SessionResponse, access: Room
 
 function nextMessage(socket: ClientSocket): Promise<RoomMessage> {
   return new Promise((resolve) => socket.once('message:new', resolve));
+}
+
+function nextTyping(socket: ClientSocket): Promise<TypingParticipant[]> {
+  return new Promise((resolve) => socket.once('room:typing', resolve));
 }
 
 function multipart(clientId: string, filename: string, bytes: Buffer, type = 'application/octet-stream') {
@@ -138,4 +143,51 @@ describe('two-client realtime flow', () => {
     });
     expect(tooLarge.statusCode).toBe(413);
   });
+
+  it('broadcasts deduplicated typing, clears it on send and disconnect', async () => {
+    const ada = await session('Ada');
+    const lin = await session('Lin');
+    const created = (await application.app.inject({ method: 'POST', url: '/api/rooms', headers: { authorization: `Bearer ${ada.token}` }, payload: { name: 'Typing', visibility: 'public' } })).json<RoomAccessResponse>();
+    const joined = (await application.app.inject({ method: 'POST', url: `/api/rooms/${created.room.code}/join`, headers: { authorization: `Bearer ${lin.token}` }, payload: {} })).json<RoomAccessResponse>();
+    const creator = await connectClient(url, ada, created);
+    const secondCreatorTab = await connectClient(url, ada, created);
+    const member = await connectClient(url, lin, joined);
+    sockets.push(creator.socket, secondCreatorTab.socket, member.socket);
+
+    const firstTyping = nextTyping(member.socket);
+    creator.socket.emit('typing:set', { isTyping: true });
+    await expect(firstTyping).resolves.toEqual([{ id: ada.sessionId, alias: 'Ada' }]);
+
+    let repeatedBroadcast = false;
+    member.socket.once('room:typing', () => { repeatedBroadcast = true; });
+    secondCreatorTab.socket.emit('typing:set', { isTyping: true });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(repeatedBroadcast).toBe(false);
+
+    const stoppedOnSend = nextTyping(member.socket);
+    creator.socket.emit('message:send', { clientId: crypto.randomUUID(), kind: 'text', text: 'Mientras escribía' }, () => undefined);
+    secondCreatorTab.socket.emit('typing:set', { isTyping: false });
+    await expect(stoppedOnSend).resolves.toEqual([]);
+
+    const typingBeforeDisconnect = nextTyping(member.socket);
+    creator.socket.emit('typing:set', { isTyping: true });
+    await expect(typingBeforeDisconnect).resolves.toEqual([{ id: ada.sessionId, alias: 'Ada' }]);
+    const stoppedOnDisconnect = nextTyping(member.socket);
+    creator.socket.disconnect();
+    await expect(stoppedOnDisconnect).resolves.toEqual([]);
+  });
+
+  it('expires typing presence defensively after the server timeout', async () => {
+    const ada = await session('Ada');
+    const lin = await session('Lin');
+    const created = (await application.app.inject({ method: 'POST', url: '/api/rooms', headers: { authorization: `Bearer ${ada.token}` }, payload: { name: 'Timeout', visibility: 'public' } })).json<RoomAccessResponse>();
+    const joined = (await application.app.inject({ method: 'POST', url: `/api/rooms/${created.room.code}/join`, headers: { authorization: `Bearer ${lin.token}` }, payload: {} })).json<RoomAccessResponse>();
+    const creator = await connectClient(url, ada, created);
+    const member = await connectClient(url, lin, joined);
+    sockets.push(creator.socket, member.socket);
+    const started = nextTyping(member.socket);
+    creator.socket.emit('typing:set', { isTyping: true });
+    await started;
+    await expect(nextTyping(member.socket)).resolves.toEqual([]);
+  }, 7_000);
 });

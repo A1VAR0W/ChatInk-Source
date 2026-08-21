@@ -61,6 +61,22 @@ describe('RoomService lifecycle', () => {
     expect([first.sequence, second.sequence]).toEqual([1, 2]);
   });
 
+  it('creates an authoritative compact snapshot for replies in the same room', async () => {
+    const room = await rooms.createRoom('creator', 'Ada', { name: 'Respuestas', visibility: 'public' });
+    rooms.connectParticipant(room.id, 'creator', 'Ada', 'socket-a');
+    const original = rooms.postMessage(room.id, 'creator', 'Ada', {
+      clientId: 'd9428888-122b-11e1-b85c-61cd3cbb3211', kind: 'text', text: 'Un mensaje original que el servidor resume de forma segura.',
+    });
+    if (original.kind !== 'text') throw new Error('Expected a text message');
+    const reply = rooms.postMessage(room.id, 'creator', 'Ada', {
+      clientId: 'd9428888-122b-11e1-b85c-61cd3cbb3212', kind: 'text', text: 'Respuesta', replyToId: original.id,
+    });
+    expect(reply.reply).toEqual({ messageId: original.id, senderAlias: 'Ada', kind: 'text', preview: original.text });
+    expect(() => rooms.postMessage(room.id, 'creator', 'Ada', {
+      clientId: 'd9428888-122b-11e1-b85c-61cd3cbb3213', kind: 'text', text: 'No existe', replyToId: 'e9428888-122b-11e1-b85c-61cd3cbb3213',
+    })).toThrow(/no esta disponible/);
+  });
+
   it('expires empty and maximum-age rooms and removes their files', async () => {
     const room = await rooms.createRoom('creator', 'Ada', { name: 'Caduca', visibility: 'public' });
     const roomDirectory = join(root, room.id);

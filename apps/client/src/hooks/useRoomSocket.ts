@@ -8,6 +8,7 @@ import type {
   ServerToClientEvents,
   SessionResponse,
   SocketAcknowledgement,
+  TypingParticipant,
 } from '@pictochat/shared';
 import { io, type Socket } from 'socket.io-client';
 import { SERVER_URL } from '../services/api';
@@ -26,6 +27,7 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [typingParticipants, setTypingParticipants] = useState<TypingParticipant[]>([]);
   const [error, setError] = useState<string>();
   const [closedReason, setClosedReason] = useState<string>();
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | undefined>(undefined);
@@ -48,6 +50,7 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
       setError(undefined);
     });
     socket.on('disconnect', (reason) => {
+      setTypingParticipants([]);
       if (reason === 'io server disconnect') setStatus('closed');
       else setStatus('reconnecting');
     });
@@ -63,8 +66,12 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
     socket.on('room:state', (state) => {
       setMessages(ordered(state.messages));
       setParticipants(state.participants);
+      setTypingParticipants([]);
     });
     socket.on('room:participants', setParticipants);
+    socket.on('room:typing', (activeParticipants) => {
+      setTypingParticipants(activeParticipants.filter((participant) => participant.id !== session.sessionId));
+    });
     socket.on('message:new', (message) => {
       setMessages((current) => ordered([...current.filter((item) => item.clientId !== message.clientId), message]));
     });
@@ -86,14 +93,15 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
     });
 
     return () => {
+      if (socket.connected) socket.emit('typing:set', { isTyping: false });
       socket.removeAllListeners();
       socket.io.removeAllListeners();
       socket.disconnect();
       socketRef.current = undefined;
     };
-  }, [access.roomToken, session.token]);
+  }, [access.roomToken, session.sessionId, session.token]);
 
-  const send = useCallback((kind: 'text' | 'drawing', value: string | DrawingPayload) => {
+  const send = useCallback((kind: 'text' | 'drawing', value: string | DrawingPayload, replyToId?: string) => {
     const socket = socketRef.current;
     if (socket === undefined || !socket.connected) {
       setError('Espera a que se recupere la conexion antes de enviar.');
@@ -126,8 +134,8 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
         };
     setMessages((current) => ordered([...current, message]));
     const input = kind === 'text'
-      ? { clientId, kind: 'text' as const, text: value as string }
-      : { clientId, kind: 'drawing' as const, drawing: value as DrawingPayload };
+      ? { clientId, kind: 'text' as const, text: value as string, ...(replyToId === undefined ? {} : { replyToId }) }
+      : { clientId, kind: 'drawing' as const, drawing: value as DrawingPayload, ...(replyToId === undefined ? {} : { replyToId }) };
     socket.emit('message:send', input, (acknowledgement: SocketAcknowledgement) => {
       if (!acknowledgement.ok) {
         setMessages((current) => current.map((item) => item.clientId === clientId ? { ...item, pending: false, failed: true } : item));
@@ -145,14 +153,21 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
     socket.emit('room:close', resolve);
   }), []);
 
+  const setTyping = useCallback((isTyping: boolean) => {
+    const socket = socketRef.current;
+    if (socket?.connected) socket.emit('typing:set', { isTyping });
+  }, []);
+
   return {
     status,
     messages,
     participants,
+    typingParticipants,
     error,
     closedReason,
-    sendText: (text: string) => send('text', text),
-    sendDrawing: (drawing: DrawingPayload) => send('drawing', drawing),
+    sendText: (text: string, replyToId?: string) => send('text', text, replyToId),
+    sendDrawing: (drawing: DrawingPayload, replyToId?: string) => send('drawing', drawing, replyToId),
+    setTyping,
     closeRoom,
     clearError: () => setError(undefined),
   };

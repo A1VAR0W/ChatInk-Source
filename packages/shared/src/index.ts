@@ -1,7 +1,40 @@
 import { z } from 'zod';
 
-export const APP_NAME = 'Chat-Ink';
+export const APP_NAME = 'ChatInk';
 export const ROOM_CODE_LENGTH = 10;
+export const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
+export const stableVersionSchema = z.string().regex(stableVersionPattern, 'La versión debe usar SemVer estable MAJOR.MINOR.PATCH');
+
+const updatePlatformSchema = z.object({
+  downloadUrl: z.url(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/i),
+  size: z.number().int().nonnegative(),
+}).strict();
+
+export const updateReleaseSchema = z.object({
+  tag: z.string().regex(/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/),
+  version: stableVersionSchema,
+  versionCode: z.number().int().positive(),
+  publishedAt: z.string().datetime({ offset: true }),
+  minimumSupportedVersion: stableVersionSchema.nullable(),
+  mandatory: z.boolean(),
+  notes: z.array(z.string().trim().min(1).max(1_000)).max(20),
+  releaseUrl: z.url(),
+  platforms: z.object({
+    android: updatePlatformSchema,
+    ios: updatePlatformSchema.extend({ sourceUrl: z.url() }),
+  }).strict(),
+}).strict();
+
+export const latestUpdateManifestSchema = z.object({
+  schemaVersion: z.literal(1),
+  channel: z.literal('stable'),
+  release: updateReleaseSchema.nullable(),
+}).strict();
+
+export type UpdateRelease = z.infer<typeof updateReleaseSchema>;
+export type LatestUpdateManifest = z.infer<typeof latestUpdateManifestSchema>;
 
 export const aliasSchema = z
   .string()
@@ -71,8 +104,16 @@ export const drawingMessageInputSchema = z.object({
   drawing: drawingPayloadSchema,
 });
 
-export const sendMessageSchema = z.discriminatedUnion('kind', [textMessageInputSchema, drawingMessageInputSchema]);
+export const replyToIdSchema = z.uuid();
+
+export const sendMessageSchema = z.discriminatedUnion('kind', [
+  textMessageInputSchema.extend({ replyToId: replyToIdSchema.optional() }),
+  drawingMessageInputSchema.extend({ replyToId: replyToIdSchema.optional() }),
+]);
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+
+export const typingStateSchema = z.object({ isTyping: z.boolean() });
+export type TypingStateInput = z.infer<typeof typingStateSchema>;
 
 export const closeRoomSchema = z.object({ reason: z.string().max(100).optional() });
 
@@ -114,18 +155,28 @@ export interface FilePayload {
   size: number;
 }
 
-export type RoomMessage = {
+export interface ReplySnapshot {
+  messageId: string;
+  senderAlias: string;
+  kind: 'text' | 'drawing' | 'file';
+  preview: string;
+}
+
+type RoomMessageBase = {
   id: string;
   clientId: string;
   roomId: string;
   sequence: number;
   createdAt: number;
   sender: { id: string; alias: string };
+  reply?: ReplySnapshot;
 } & (
   | { kind: 'text'; text: string }
   | { kind: 'drawing'; drawing: DrawingPayload }
   | { kind: 'file'; file: FilePayload }
 );
+
+export type RoomMessage = RoomMessageBase;
 
 export interface RoomState {
   room: RoomSummary;
@@ -144,16 +195,23 @@ export interface UploadResponse {
   message: RoomMessage;
 }
 
+export interface TypingParticipant {
+  id: string;
+  alias: string;
+}
+
 export interface ServerToClientEvents {
   'room:state': (state: RoomState) => void;
   'room:participants': (participants: Participant[]) => void;
   'message:new': (message: RoomMessage) => void;
+  'room:typing': (participants: TypingParticipant[]) => void;
   'room:closed': (payload: { reason: 'creator' | 'expired' | 'empty' | 'shutdown' }) => void;
   'server:error': (payload: { code: string; message: string; clientId?: string }) => void;
 }
 
 export interface ClientToServerEvents {
   'message:send': (message: SendMessageInput, acknowledge: (result: SocketAcknowledgement) => void) => void;
+  'typing:set': (input: TypingStateInput) => void;
   'room:close': (acknowledge: (result: SocketAcknowledgement) => void) => void;
 }
 

@@ -96,13 +96,18 @@ jobs:
         env:
           VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
           VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
+          VITE_APP_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VITE_RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          VITE_UPDATE_MANIFEST_URL: https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json
 
       - name: Create and sync Capacitor iOS project
         working-directory: apps/client
         run: |
           npx cap add ios --packagemanager CocoaPods
+          node ../../scripts/native/configure-projects.mjs
+          npm run assets:generate:ios
           npx cap sync ios
-          npm run icons:apply:ios
 
       - name: Install CocoaPods
         working-directory: apps/client/ios/App

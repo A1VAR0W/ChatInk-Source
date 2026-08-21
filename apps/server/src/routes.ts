@@ -26,6 +26,14 @@ const createSessionSchema = z.object({ alias: aliasSchema });
 const routeRoomCodeSchema = z.object({ code: roomCodeSchema });
 const routeRoomFileSchema = z.object({ roomId: z.uuid(), fileId: z.uuid() });
 
+function multipartFieldValue(fields: unknown, name: string): unknown {
+  if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) return undefined;
+  const field = (fields as Record<string, unknown>)[name];
+  const first: unknown = Array.isArray(field) ? field[0] : field;
+  if (typeof first !== 'object' || first === null || Array.isArray(first)) return undefined;
+  return (first as Record<string, unknown>).value;
+}
+
 interface Services {
   config: AppConfig;
   rooms: RoomService;
@@ -110,10 +118,9 @@ export function registerRoutes(app: FastifyInstance, services: Services): void {
 
     const part = await request.file({ limits: { fileSize: config.maxFileBytes, files: 1, fields: 3 } });
     if (part === undefined) throw new DomainError('FILE_REQUIRED', 'Selecciona un archivo', 400);
-    const clientIdField = part.fields.clientId;
-    const firstClientIdField = Array.isArray(clientIdField) ? clientIdField[0] : clientIdField;
-    const clientIdRaw = firstClientIdField !== undefined && 'value' in firstClientIdField ? firstClientIdField.value : undefined;
-    const clientId = z.uuid().parse(clientIdRaw);
+    const clientId = z.uuid().parse(multipartFieldValue(part.fields, 'clientId'));
+    const replyToIdRaw = multipartFieldValue(part.fields, 'replyToId');
+    const replyToId = replyToIdRaw === undefined || replyToIdRaw === '' ? undefined : z.uuid().parse(replyToIdRaw);
     const fileId = randomUUID();
     const partialPath = await storage.partialPath(params.roomId, fileId);
     let finalPath: string | undefined;
@@ -136,7 +143,7 @@ export function registerRoutes(app: FastifyInstance, services: Services): void {
         size: metadata.size,
         path: finalPath,
         createdAt: Date.now(),
-      });
+      }, replyToId);
       return reply.code(201).send({ message });
     } catch (error) {
       await storage.removeFile(finalPath ?? partialPath);

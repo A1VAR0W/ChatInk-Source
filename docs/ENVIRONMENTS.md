@@ -24,7 +24,7 @@ docker compose down
 
 El cliente está en `http://localhost:5173` y la API en `http://localhost:3001`. `.env.development` está ignorado por Git.
 
-El antiguo archivo genérico `.env` no se carga. El lanzador también descarta variables de Chat-Ink heredadas de la consola antes de cargar el archivo del modo elegido; así una terminal usada previamente para Producción no contamina Desarrollo. Si ya existe un `.env` de una instalación anterior, copia manualmente solo los valores de Desarrollo que sigan siendo necesarios y elimínalo cuando hayas comprobado la migración.
+El antiguo archivo genérico `.env` no se carga. El lanzador también descarta variables de ChatInk heredadas de la consola antes de cargar el archivo del modo elegido; así una terminal usada previamente para Producción no contamina Desarrollo. Si ya existe un `.env` de una instalación anterior, copia manualmente solo los valores de Desarrollo que sigan siendo necesarios y elimínalo cuando hayas comprobado la migración.
 
 ## Producción
 

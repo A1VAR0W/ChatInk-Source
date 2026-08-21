@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "icons:apply": "node scripts/apply-native-icons.mjs all",
-    "icons:apply:android": "node scripts/apply-native-icons.mjs android",
-    "icons:apply:ios": "node scripts/apply-native-icons.mjs ios",
+    "assets:generate": "capacitor-assets generate --android --ios --iconBackgroundColor=#f3f1fb --iconBackgroundColorDark=#11101e --splashBackgroundColor=#f3f1fb --splashBackgroundColorDark=#11101e",
+    "assets:generate:android": "capacitor-assets generate --android --iconBackgroundColor=#f3f1fb --iconBackgroundColorDark=#11101e --splashBackgroundColor=#f3f1fb --splashBackgroundColorDark=#11101e",
+    "assets:generate:ios": "capacitor-assets generate --ios --iconBackgroundColor=#f3f1fb --iconBackgroundColorDark=#11101e --splashBackgroundColor=#f3f1fb --splashBackgroundColorDark=#11101e",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build -w @pictochat/shared",
@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.5.0",
     "@capacitor/ios": "^8.5.0",
     "@ionic/react": "^9.0.0",
@@ -28,6 +29,7 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@capacitor/assets": "3.0.5",
     "@capacitor/cli": "^8.5.0",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.9.1",

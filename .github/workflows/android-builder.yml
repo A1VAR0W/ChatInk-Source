@@ -121,13 +121,18 @@ jobs:
         env:
           VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
           VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
+          VITE_APP_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VITE_RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          VITE_UPDATE_MANIFEST_URL: https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json
 
       - name: Create and sync Capacitor Android project
         working-directory: apps/client
         run: |
           npx cap add android
+          node ../../scripts/native/configure-projects.mjs
+          npm run assets:generate:android
           npx cap sync android
-          npm run icons:apply:android
 
       - name: Make Gradle wrapper executable
         working-directory: apps/client/android

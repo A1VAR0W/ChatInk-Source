@@ -1,9 +1,12 @@
-import { appendFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const VERSION_SEGMENT_LIMIT = 999;
 const MAX_ANDROID_VERSION_CODE = 2_100_000_000;
 const TAG_PATTERN = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+const VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function fail(message) {
   throw new Error(message);
@@ -33,6 +36,42 @@ export function versionCodeFromSegments(major, minor, patch) {
   return code;
 }
 
+export function parseProductVersion(version) {
+  const match = VERSION_PATTERN.exec(version);
+  if (!match) fail('La versión debe tener el formato exacto MAJOR.MINOR.PATCH, sin prefijos, sufijos ni pre-releases.');
+  const [, majorText, minorText, patchText] = match;
+  const major = Number(majorText);
+  const minor = Number(minorText);
+  const patch = Number(patchText);
+  if (![major, minor, patch].every(Number.isSafeInteger)) fail('Los segmentos de versión no son seguros.');
+  const versionCode = versionCodeFromSegments(major, minor, patch);
+  return Object.freeze({ version, major, minor, patch, versionCode });
+}
+
+export function compareProductVersions(left, right) {
+  const leftVersion = typeof left === 'string' ? parseProductVersion(left) : left;
+  const rightVersion = typeof right === 'string' ? parseProductVersion(right) : right;
+  for (const key of ['major', 'minor', 'patch']) {
+    if (leftVersion[key] !== rightVersion[key]) return leftVersion[key] > rightVersion[key] ? 1 : -1;
+  }
+  return 0;
+}
+
+export async function readCanonicalProductVersion() {
+  const [rootRaw, clientRaw] = await Promise.all([
+    readFile(resolve(repositoryRoot, 'package.json'), 'utf8'),
+    readFile(resolve(repositoryRoot, 'apps', 'client', 'package.json'), 'utf8'),
+  ]);
+  const root = JSON.parse(rootRaw);
+  const client = JSON.parse(clientRaw);
+  if (typeof root.version !== 'string' || typeof client.version !== 'string') fail('Los package.json deben declarar version.');
+  const canonical = parseProductVersion(root.version);
+  if (client.version !== canonical.version) {
+    fail(`La versión del cliente (${client.version}) no coincide con la versión canónica (${canonical.version}).`);
+  }
+  return canonical;
+}
+
 export function parseReleaseTag(tag) {
   const match = TAG_PATTERN.exec(tag);
   if (!match) {
@@ -40,19 +79,10 @@ export function parseReleaseTag(tag) {
   }
 
   const [, majorText, minorText, patchText] = match;
-  const major = Number(majorText);
-  const minor = Number(minorText);
-  const patch = Number(patchText);
-  if (![major, minor, patch].every(Number.isSafeInteger)) fail('Los segmentos de versión no son seguros.');
-
-  const versionCode = versionCodeFromSegments(major, minor, patch);
+  const product = parseProductVersion(`${majorText}.${minorText}.${patchText}`);
   return Object.freeze({
     tag,
-    version: `${major}.${minor}.${patch}`,
-    major,
-    minor,
-    patch,
-    versionCode,
+    ...product,
   });
 }
 
@@ -76,12 +106,25 @@ async function main() {
   const developmentPackageVersion = optionValue('--development-package-version');
   const developmentRun = optionValue('--development-run');
   const githubOutput = optionValue('--github-output');
+  const publishedVersion = optionValue('--published-version');
 
+  const canonical = await readCanonicalProductVersion();
   const result = tag
     ? parseReleaseTag(tag)
     : developmentPackageVersion && developmentRun
       ? developmentVersion(developmentPackageVersion, developmentRun)
       : fail('Indica --tag o --development-package-version junto con --development-run.');
+
+  if (tag && result.version !== canonical.version) {
+    fail(`El tag ${tag} no coincide con la versión canónica ${canonical.version}.`);
+  }
+  if (developmentPackageVersion && developmentPackageVersion !== canonical.version) {
+    fail(`La versión de desarrollo ${developmentPackageVersion} no coincide con la versión canónica ${canonical.version}.`);
+  }
+  if (publishedVersion !== undefined) {
+    const comparison = compareProductVersions(result.version, publishedVersion);
+    if (comparison <= 0) fail(`La versión ${result.version} debe ser estrictamente mayor que la última publicada (${publishedVersion}).`);
+  }
 
   if (githubOutput) {
     const output = [

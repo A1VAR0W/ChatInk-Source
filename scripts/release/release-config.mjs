@@ -1,6 +1,6 @@
 export const APP = Object.freeze({
   name: 'ChatInk',
-  bundleIdentifier: 'com.doodledrop.app',
+  bundleIdentifier: 'io.github.a1var0w.chatink',
   developerName: 'A1VAR0W',
   subtitle: 'Chat efímero de texto, dibujo y archivos.',
   description:

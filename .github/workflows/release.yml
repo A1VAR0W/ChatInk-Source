@@ -39,6 +39,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Resolve and validate release tag
         id: context
@@ -63,7 +65,26 @@ jobs:
             *) echo 'Modo de release no soportado.' >&2; exit 1 ;;
           esac
 
-          node scripts/release/version.mjs --tag "$release_tag" --github-output "$GITHUB_OUTPUT"
+          if [[ "$mode" == "publish" ]]; then
+            release_commit="$(git rev-list -n1 "$release_tag")"
+            git merge-base --is-ancestor "$release_commit" origin/main || {
+              echo 'El commit etiquetado debe pertenecer a la historia de main.' >&2
+              exit 1
+            }
+
+            latest_manifest="$RUNNER_TEMP/chatink-latest.json"
+            curl --fail --silent --show-error \
+              'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json' \
+              --output "$latest_manifest"
+            published_version="$(node --input-type=module -e 'import { readFile } from "node:fs/promises"; const manifest = JSON.parse(await readFile(process.argv[1], "utf8")); if (manifest?.schemaVersion !== 1 || manifest?.channel !== "stable" || !Object.hasOwn(manifest, "release")) process.exit(1); if (manifest.release === null) process.exit(0); if (typeof manifest.release?.version !== "string") process.exit(1); process.stdout.write(manifest.release.version);' "$latest_manifest")"
+            if [[ -n "$published_version" ]]; then
+              node scripts/release/version.mjs --tag "$release_tag" --published-version "$published_version" --github-output "$GITHUB_OUTPUT"
+            else
+              node scripts/release/version.mjs --tag "$release_tag" --github-output "$GITHUB_OUTPUT"
+            fi
+          else
+            node scripts/release/version.mjs --tag "$release_tag" --github-output "$GITHUB_OUTPUT"
+          fi
           printf 'mode=%s\n' "$mode" >> "$GITHUB_OUTPUT"
           printf 'source_ref=%s\n' "$source_ref" >> "$GITHUB_OUTPUT"
 
@@ -93,6 +114,27 @@ jobs:
       - name: Validate release version
         run: npm run release:validate-version -- --tag "${{ needs.prepare.outputs.tag }}"
 
+      - name: Validate production variable and secret names
+        shell: bash
+        env:
+          PUBLIC_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in PUBLIC_SERVER_URL PUBLIC_APP_URL RELEASES_TOKEN ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            [[ -n "${!name:-}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Faltan variables o secretos de production: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -110,6 +152,10 @@ jobs:
         env:
           VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
           VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          VITE_APP_VERSION: ${{ needs.prepare.outputs.version }}
+          VITE_APP_VERSION_CODE: ${{ needs.prepare.outputs.version_code }}
+          VITE_RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          VITE_UPDATE_MANIFEST_URL: https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json
 
       - name: Reject production source maps
         shell: bash
@@ -157,6 +203,8 @@ jobs:
       (needs.quality.result == 'success' && needs.build-android.result == 'success' && needs.build-ios.result == 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    environment:
+      name: production
     env:
       RELEASES_REPOSITORY: A1VAR0W/ChatInk-Releases
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
@@ -168,6 +216,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare.outputs.source_ref }}
+
+      - name: Install release tooling dependencies
+        run: npm ci
 
       - name: Download Android artifact
         if: env.RELEASE_MODE != 'repair-metadata'
@@ -293,6 +344,10 @@ jobs:
           apk="release-artifacts/ChatInk-${RELEASE_VERSION}.apk"
           ipa="release-artifacts/ChatInk-${RELEASE_VERSION}.ipa"
           published_at="$(date --utc --iso-8601=seconds)"
+          metadata_mode="publish"
+          if [[ "$RELEASE_MODE" == 'repair-metadata' ]]; then
+            metadata_mode="repair"
+          fi
           cp apps/client/public/icons/icon-512.png "$metadata_directory/icon-512.png"
 
           node scripts/release/generate-public-metadata.mjs \
@@ -302,7 +357,8 @@ jobs:
             --apk-sha256 "$(sha256sum "$apk" | awk '{print $1}')" \
             --ipa-sha256 "$(sha256sum "$ipa" | awk '{print $1}')" \
             --apk-size "$(stat --format='%s' "$apk")" \
-            --ipa-size "$(stat --format='%s' "$ipa")"
+            --ipa-size "$(stat --format='%s' "$ipa")" \
+            --mode "$metadata_mode"
           node scripts/release/validate-public-metadata.mjs --directory "$metadata_directory"
 
       - name: Assert public repository contains only distribution files

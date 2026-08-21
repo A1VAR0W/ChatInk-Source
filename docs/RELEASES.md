@@ -18,9 +18,17 @@ latest.json y sidestore-source.json
 
 El workflow `.github/workflows/release.yml` es el único que publica releases. Los builders de Android e iOS son workflows reutilizables: pueden ejecutarse manualmente para obtener artifacts de desarrollo, pero no crean releases públicas.
 
+El manifiesto público usa un único contrato. Antes de la primera publicación es exactamente:
+
+```json
+{"schemaVersion":1,"channel":"stable","release":null}
+```
+
+Después, `release` contiene el tag, versión, `versionCode`, fecha ISO, obligatoriedad, notas de texto, URLs inmutables de APK/IPA, SHA-256 y tamaño. El cliente valida el esquema y la allowlist de URLs antes de mostrar una actualización.
+
 ## Versionado
 
-El tag es la fuente de verdad y debe tener exactamente el formato estable `vMAJOR.MINOR.PATCH`; no se aceptan prefijos, sufijos ni pre-releases en el canal estable. El binario Android usa `versionName=MAJOR.MINOR.PATCH`, iOS usa `CFBundleShortVersionString=MAJOR.MINOR.PATCH` y SideStore/latest.json usan la misma versión.
+El `version` de `package.json` raíz es la fuente de verdad del producto. Debe coincidir exactamente con `apps/client/package.json`; `npm run release:bump -- patch|minor|major` actualiza ambos y `package-lock.json`, pero nunca crea un tag ni hace push. El tag de release debe ser exactamente `v${package.json.version}`; no se aceptan prefijos, sufijos ni pre-releases en el canal estable. El binario Android usa `versionName=MAJOR.MINOR.PATCH`, iOS usa `CFBundleShortVersionString=MAJOR.MINOR.PATCH`, el bundle Vite recibe esa misma versión y SideStore/latest.json la conservan sin transformaciones.
 
 El `versionCode` es determinista:
 
@@ -42,7 +50,7 @@ En `A1VAR0W/Chat-Ink`, configura estos secretos de repositorio:
 | `ANDROID_KEY_PASSWORD` | Contraseña de la clave privada. |
 | `RELEASES_TOKEN` | Fine-grained PAT que solo puede escribir en `A1VAR0W/ChatInk-Releases`. |
 
-El token `RELEASES_TOKEN` debe ser un fine-grained PAT con acceso únicamente al repositorio `A1VAR0W/ChatInk-Releases` y permiso de repositorio **Contents: Read and write**. Ese permiso permite crear la GitHub Release, subir assets y confirmar el commit de metadatos; no concede acceso al código privado. Define una caducidad corta y rótalo antes de que expire: crea el nuevo token, reemplaza el secreto en `Chat-Ink`, ejecuta un `dry-run` y revoca el anterior.
+El token `RELEASES_TOKEN` debe ser un fine-grained PAT con acceso únicamente al repositorio `A1VAR0W/ChatInk-Releases` y permiso de repositorio **Contents: Read and write**. Ese permiso permite crear la GitHub Release, subir assets y confirmar el commit de metadatos; no concede acceso al código privado. Define una caducidad corta y rótalo antes de que expire: crea el nuevo token, reemplaza el secreto en `ChatInk`, ejecuta un `dry-run` y revoca el anterior.
 
 En los entornos GitHub `production` y, si vas a usar builders manuales, `development`, configura estas **variables** públicas:
 
@@ -72,7 +80,7 @@ git tag -a v0.1.0 -m "ChatInk v0.1.0"
 git push origin v0.1.0
 ```
 
-No crees tags para probar el pipeline. Para ensayar sin publicar, abre **Actions → release → Run workflow**, indica una versión SemVer y usa `dry-run`. El dry-run ejecuta quality gates, genera los binarios y adjunta una previsualización privada de los metadatos, pero no crea una GitHub Release ni escribe en el repositorio público.
+No crees tags para probar el pipeline. Para ensayar sin publicar, abre **Actions → release → Run workflow**, indica la versión canónica actual y usa `dry-run`. El dry-run ejecuta quality gates, genera los binarios y adjunta una previsualización privada de los metadatos, pero no crea una GitHub Release ni escribe en el repositorio público.
 
 Si una publicación se interrumpe después de crear la GitHub Release y antes de actualizar metadatos, no vuelvas a empujar el tag ni borres la release. Comprueba manualmente sus nombres y hashes y ejecuta el workflow manual con el mismo tag y el modo `repair-metadata`. Ese modo descarga los assets existentes, vuelve a calcular hashes y solo actualiza `latest.json`, `sidestore-source.json`, el README y el icono público.
 
@@ -103,7 +111,7 @@ La fuente compatible con SideStore y AltStore es:
 https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/sidestore-source.json
 ```
 
-En SideStore puede abrirse directamente con `sidestore://source?url=<URL-de-la-fuente>`. SideStore vuelve a firmar el IPA con el certificado de desarrollo de la cuenta Apple del usuario; por eso el IPA de este proyecto se compila sin certificados privados de Apple, pero se comprueba que contiene un `Payload/*.app` con el Bundle ID y las versiones esperadas.
+En iOS, copia esa URL en SideStore o AltStore para añadir la fuente. SideStore vuelve a firmar el IPA con el certificado de desarrollo de la cuenta Apple del usuario; por eso el IPA de este proyecto se compila sin certificados privados de Apple, pero se comprueba que contiene un `Payload/*.app` con el Bundle ID y las versiones esperadas.
 
 ## Desarrollo frente a release
 

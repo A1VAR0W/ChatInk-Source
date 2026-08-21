@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { RoomMessage, TypingParticipant } from '@pictochat/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Brand } from '../components/Brand';
 import { ChatComposer } from '../components/ChatComposer';
@@ -15,6 +16,13 @@ function statusLabel(status: ReturnType<typeof useRoomSocket>['status']) {
   if (status === 'reconnecting') return 'Reconectando';
   if (status === 'closed') return 'Sala cerrada';
   return 'Sin conexión';
+}
+
+function typingLabel(participants: TypingParticipant[]): string | undefined {
+  if (participants.length === 0) return undefined;
+  if (participants.length === 1) return `${participants[0]?.alias} está escribiendo…`;
+  if (participants.length === 2) return `${participants[0]?.alias} y ${participants[1]?.alias} están escribiendo…`;
+  return `${participants[0]?.alias} y ${participants.length - 1} más están escribiendo…`;
 }
 
 export function RoomPage() {
@@ -38,6 +46,8 @@ function ActiveRoom({ roomId }: { roomId: string }) {
   const realtime = useRoomSocket(access, session);
   const [showPeople, setShowPeople] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [replyTo, setReplyTo] = useState<RoomMessage>();
+  const [composerMode, setComposerMode] = useState<'text' | 'drawing'>('text');
   const maxFileBytes = Number(import.meta.env.VITE_MAX_FILE_BYTES ?? 26_214_400);
   const inviteUrl = useMemo(() => {
     const publicAppUrl = (import.meta.env.VITE_PUBLIC_APP_URL?.trim() || (import.meta.env.PROD ? 'https://chat-ink.tail552c89.ts.net' : window.location.origin)).replace(/\/$/, '');
@@ -56,7 +66,7 @@ function ActiveRoom({ roomId }: { roomId: string }) {
     const result = await realtime.closeRoom();
     if (!result.ok) window.alert(result.message);
   };
-  const startUploads = (files: FileList) => {
+  const startUploads = (files: FileList, replyToId?: string) => {
     for (const file of Array.from(files)) {
       const id = crypto.randomUUID();
       if (file.size > maxFileBytes) {
@@ -65,7 +75,7 @@ function ActiveRoom({ roomId }: { roomId: string }) {
       }
       const task = uploadFile(roomId, file, id, access.roomToken, session.token, (progress) => {
         setUploads((current) => current.map((item) => item.id === id ? { ...item, progress } : item));
-      });
+      }, replyToId);
       setUploads((current) => [...current, { id, name: file.name, size: file.size, progress: 0, status: 'uploading', cancel: task.cancel }]);
       void task.promise
         .then(() => setUploads((current) => current.map((item) => item.id === id ? { ...item, progress: 100, status: 'done' } : item)))
@@ -76,6 +86,11 @@ function ActiveRoom({ roomId }: { roomId: string }) {
         } : item)));
     }
   };
+  const selectReply = useCallback((message: RoomMessage) => {
+    setReplyTo(message);
+    setComposerMode('text');
+  }, []);
+  const activeTypingLabel = typingLabel(realtime.typingParticipants);
 
   return (
     <main className="room-page">
@@ -93,10 +108,21 @@ function ActiveRoom({ roomId }: { roomId: string }) {
       {realtime.error !== undefined && <div className="alert alert--error room-alert" role="alert"><span>{realtime.error}</span><button type="button" onClick={realtime.clearError} aria-label="Cerrar">×</button></div>}
 
       <div className="room-layout">
-        <section className="chat-area">
-          <div className="history"><MessageList messages={realtime.messages} ownId={session.sessionId} roomToken={access.roomToken} /></div>
+        <section className={`chat-area ${composerMode === 'drawing' ? 'chat-area--drawing' : ''}`}>
+          <div className="history"><MessageList messages={realtime.messages} ownId={session.sessionId} roomToken={access.roomToken} onReply={selectReply} /></div>
           <UploadTray uploads={uploads} dismiss={(id) => setUploads((current) => current.filter((item) => item.id !== id))} />
-          <ChatComposer disabled={realtime.status !== 'connected'} onText={realtime.sendText} onDrawing={realtime.sendDrawing} onFiles={startUploads} />
+          <div className="typing-indicator" role="status" aria-live="polite" aria-atomic="true">{activeTypingLabel}</div>
+          <ChatComposer
+            disabled={realtime.status !== 'connected'}
+            mode={composerMode}
+            {...(replyTo === undefined ? {} : { replyTo })}
+            onText={realtime.sendText}
+            onDrawing={realtime.sendDrawing}
+            onFiles={startUploads}
+            onCancelReply={() => setReplyTo(undefined)}
+            onTypingChange={realtime.setTyping}
+            onModeChange={setComposerMode}
+          />
         </section>
         <aside className={`participants-panel ${showPeople ? 'participants-panel--open' : ''}`}>
           <div className="participants-title"><div><h2>En la sala</h2><span>{realtime.participants.length}/{access.room.maxParticipants}</span></div><button type="button" className="icon-button panel-close" onClick={() => setShowPeople(false)} aria-label="Cerrar participantes">×</button></div>

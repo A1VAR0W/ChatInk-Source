@@ -3,6 +3,7 @@ import argon2 from 'argon2';
 import type {
   FilePayload,
   Participant,
+  ReplySnapshot,
   RoomMessage,
   RoomState,
   RoomSummary,
@@ -205,6 +206,7 @@ export class RoomService {
     }
     const existing = room.messageByClientId.get(input.clientId);
     if (existing !== undefined) return existing;
+    const reply = input.replyToId === undefined ? undefined : this.replySnapshot(room, input.replyToId);
     const base = {
       id: randomUUID(),
       clientId: input.clientId,
@@ -212,6 +214,7 @@ export class RoomService {
       sequence: ++room.sequence,
       createdAt: this.clock(),
       sender: { id: sessionId, alias },
+      ...(reply === undefined ? {} : { reply }),
     };
     const message: RoomMessage = input.kind === 'text'
       ? { ...base, kind: 'text', text: input.text }
@@ -227,6 +230,7 @@ export class RoomService {
     alias: string,
     clientId: string,
     file: StoredFile,
+    replyToId?: string,
   ): RoomMessage {
     const room = this.byId(roomId);
     if (!room.participants.has(sessionId)) throw new DomainError('NOT_IN_ROOM', 'Ya no formas parte de la sala', 403);
@@ -234,6 +238,7 @@ export class RoomService {
     if (existing !== undefined) return existing;
     if (room.files.size >= this.config.maxFilesPerRoom) throw new DomainError('FILE_LIMIT', 'La sala ha alcanzado el limite de archivos', 409);
     room.files.set(file.id, file);
+    const reply = replyToId === undefined ? undefined : this.replySnapshot(room, replyToId);
     const message: RoomMessage = {
       id: randomUUID(),
       clientId,
@@ -241,6 +246,7 @@ export class RoomService {
       sequence: ++room.sequence,
       createdAt: this.clock(),
       sender: { id: sessionId, alias },
+      ...(reply === undefined ? {} : { reply }),
       kind: 'file',
       file: { id: file.id, name: file.name, mime: file.mime, size: file.size },
     };
@@ -302,6 +308,24 @@ export class RoomService {
       const removed = room.messages.shift();
       if (removed !== undefined) room.messageByClientId.delete(removed.clientId);
     }
+  }
+
+  private replySnapshot(room: Room, messageId: string): ReplySnapshot {
+    const original = room.messages.find((message) => message.id === messageId);
+    if (original === undefined) {
+      throw new DomainError('REPLY_NOT_FOUND', 'El mensaje al que respondes ya no esta disponible', 404);
+    }
+    const preview = original.kind === 'text'
+      ? original.text.length > 160 ? `${original.text.slice(0, 157)}…` : original.text
+      : original.kind === 'drawing'
+        ? 'Dibujo'
+        : original.file.name.length > 160 ? `${original.file.name.slice(0, 157)}…` : original.file.name;
+    return {
+      messageId: original.id,
+      senderAlias: original.sender.alias,
+      kind: original.kind,
+      preview,
+    };
   }
 
   private byCode(code: string): Room {
