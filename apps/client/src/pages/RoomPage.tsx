@@ -40,7 +40,7 @@ function ActiveRoom({ roomId }: { roomId: string }) {
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const maxFileBytes = Number(import.meta.env.VITE_MAX_FILE_BYTES ?? 26_214_400);
   const inviteUrl = useMemo(() => {
-    const publicAppUrl = (import.meta.env.VITE_PUBLIC_APP_URL ?? window.location.origin).replace(/\/$/, '');
+    const publicAppUrl = (import.meta.env.VITE_PUBLIC_APP_URL?.trim() || (import.meta.env.PROD ? 'https://chat-ink.tail552c89.ts.net' : window.location.origin)).replace(/\/$/, '');
     return `${publicAppUrl}/?room=${access.room.code}`;
   }, [access.room.code]);
 

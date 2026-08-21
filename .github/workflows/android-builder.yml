@@ -56,8 +56,8 @@ jobs:
       - name: Build PWA
         run: npm run build:pwa
         env:
-          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
-          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL || 'https://chat-ink.tail552c89.ts.net' }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL || 'https://chat-ink.tail552c89.ts.net' }}
 
       - name: Create and sync Capacitor Android project
         working-directory: apps/client

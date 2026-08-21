@@ -6,7 +6,13 @@ import type {
   UploadResponse,
 } from '@pictochat/shared';
 
-export const SERVER_URL = (import.meta.env.VITE_SERVER_URL ?? '').replace(/\/$/, '');
+const configuredServerUrl = import.meta.env.VITE_SERVER_URL?.trim();
+const productionServerUrl = 'https://chat-ink.tail552c89.ts.net';
+
+// Native bundles cannot use window.location: on a phone that would resolve to
+// the Capacitor WebView instead of the home server. Keep an explicit production
+// fallback while still allowing deployments to override it at build time.
+export const SERVER_URL = (configuredServerUrl || (import.meta.env.PROD ? productionServerUrl : '')).replace(/\/$/, '');
 
 export class ApiClientError extends Error {
   constructor(readonly code: string, message: string, readonly status: number) {
