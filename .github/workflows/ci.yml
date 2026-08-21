@@ -40,6 +40,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Test release tooling
+        run: npm run test:release
+
       - name: Build application
         run: npm run build
 
