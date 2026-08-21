@@ -8,10 +8,14 @@ import {
 } from 'react';
 import type { DrawingPayload, DrawingStroke } from '@pictochat/shared';
 import { DrawingPreview, paintDrawing } from './DrawingPreview';
+import { CanvasIcon, EraserIcon, InkMarkIcon, PencilIcon, RedoIcon, TrashIcon, UndoIcon } from './Icons';
 
-const COLORS = ['#17162b', '#6c5ce7', '#0984e3', '#00a884', '#f39c12', '#e84393', '#d63031'];
+const COLORS = ['#17162b', '#6c5ce7', '#0984e3', '#00a884', '#f39c12', '#e84393', '#d63031', '#ffffff'];
 const EMPTY: DrawingStroke[] = [];
 const MAX_POINTS_PER_STROKE = 4_000;
+const WHITE = '#ffffff';
+
+type ComposerBackground = Extract<DrawingPayload['background'], 'white' | 'logo'>;
 
 type CanvasPointEvent = Pick<PointerEvent, 'clientX' | 'clientY' | 'pressure'>;
 
@@ -36,15 +40,16 @@ export function DrawingCanvas({
   const [color, setColor] = useState(COLORS[0] ?? '#17162b');
   const [width, setWidth] = useState(5);
   const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');
+  const [background, setBackground] = useState<ComposerBackground>('white');
   const [showPreview, setShowPreview] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 440 });
 
   const drawing = useCallback((nextStrokes: DrawingStroke[]): DrawingPayload => ({
     width: 800,
     height: 440,
-    background: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
+    background,
     strokes: nextStrokes,
-  }), []);
+  }), [background]);
 
   const render = useCallback((committed = strokesRef.current, inProgress = activeStroke.current) => {
     const canvas = canvasRef.current;
@@ -154,22 +159,32 @@ export function DrawingCanvas({
     setShowPreview(false);
   };
 
+  const selectColor = (value: string) => {
+    if (value === WHITE) return;
+    setColor(value);
+    setTool('pencil');
+  };
+
   return (
     <div className="drawing-composer" hidden={!active}>
       <div className="drawing-tools" aria-label="Herramientas de dibujo">
-        <button type="button" className={tool === 'pencil' ? 'tool active' : 'tool'} onClick={() => setTool('pencil')} aria-pressed={tool === 'pencil'}>Lápiz</button>
-        <button type="button" className={tool === 'eraser' ? 'tool active' : 'tool'} onClick={() => setTool('eraser')} aria-pressed={tool === 'eraser'}>Goma</button>
+        <button type="button" className={tool === 'pencil' ? 'tool active' : 'tool'} onClick={() => setTool('pencil')} aria-pressed={tool === 'pencil'} aria-label="Lápiz" title="Lápiz"><PencilIcon /></button>
+        <button type="button" className={tool === 'eraser' ? 'tool active' : 'tool'} onClick={() => setTool('eraser')} aria-pressed={tool === 'eraser'} aria-label="Goma" title="Goma"><EraserIcon /></button>
+        <div className="drawing-background" role="group" aria-label="Fondo del lienzo">
+          <button type="button" className={background === 'white' ? 'tool active' : 'tool'} onClick={() => setBackground('white')} aria-pressed={background === 'white'} aria-label="Fondo blanco" title="Fondo blanco"><CanvasIcon /></button>
+          <button type="button" className={background === 'logo' ? 'tool active' : 'tool'} onClick={() => setBackground('logo')} aria-pressed={background === 'logo'} aria-label="Fondo con icono ChatInk" title="Fondo con icono ChatInk"><InkMarkIcon /></button>
+        </div>
         <div className="color-picker" aria-label="Color">
           {COLORS.map((value) => (
-            <button key={value} type="button" aria-label={`Color ${value}`} className={color === value ? 'swatch active' : 'swatch'} style={{ background: value }} onClick={() => { setColor(value); setTool('pencil'); }} />
+            <button key={value} type="button" aria-label={value === WHITE ? 'Blanco no disponible sobre fondo blanco' : `Color ${value}`} title={value === WHITE ? 'El blanco no se ve sobre este fondo' : `Color ${value}`} className={color === value ? 'swatch active' : 'swatch'} style={{ background: value }} onClick={() => selectColor(value)} disabled={value === WHITE} />
           ))}
         </div>
         <label className="width-control">Grosor <input type="range" min="1" max="28" value={width} onChange={(event) => setWidth(Number(event.target.value))} aria-valuetext={`${width} píxeles`} /></label>
         <output className="width-value" aria-label={`Grosor actual: ${width} píxeles`}>{width}</output>
         <div className="drawing-actions">
-          <button type="button" className="tool" onClick={undo} disabled={strokes.length === 0}>Deshacer</button>
-          <button type="button" className="tool" onClick={redo} disabled={redoStack.length === 0}>Rehacer</button>
-          <button type="button" className="tool tool--danger" onClick={clear} disabled={strokes.length === 0}>Limpiar</button>
+          <button type="button" className="tool" onClick={undo} disabled={strokes.length === 0} aria-label="Deshacer" title="Deshacer"><UndoIcon /></button>
+          <button type="button" className="tool" onClick={redo} disabled={redoStack.length === 0} aria-label="Rehacer" title="Rehacer"><RedoIcon /></button>
+          <button type="button" className="tool tool--danger" onClick={clear} disabled={strokes.length === 0} aria-label="Limpiar lienzo" title="Limpiar lienzo"><TrashIcon /></button>
         </div>
       </div>
       <canvas

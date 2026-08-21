@@ -1,36 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
-
-const UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json';
-
-function updateManifest(options: { mandatory?: boolean; minimumSupportedVersion?: string | null; release?: null } = {}) {
-  return {
-    schemaVersion: 1,
-    channel: 'stable',
-    release: options.release === null ? null : {
-      tag: 'v0.2.0',
-      version: '0.2.0',
-      versionCode: 2_001,
-      publishedAt: '2026-08-21T12:00:00.000Z',
-      minimumSupportedVersion: options.minimumSupportedVersion ?? null,
-      mandatory: options.mandatory ?? false,
-      notes: ['Mejoras de estabilidad y accesibilidad.'],
-      releaseUrl: 'https://github.com/A1VAR0W/ChatInk-Releases/releases/tag/v0.2.0',
-      platforms: {
-        android: {
-          downloadUrl: 'https://github.com/A1VAR0W/ChatInk-Releases/releases/download/v0.2.0/ChatInk-0.2.0.apk',
-          sha256: 'a'.repeat(64),
-          size: 1_024,
-        },
-        ios: {
-          downloadUrl: 'https://github.com/A1VAR0W/ChatInk-Releases/releases/download/v0.2.0/ChatInk-0.2.0.ipa',
-          sha256: 'b'.repeat(64),
-          size: 2_048,
-          sourceUrl: 'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/sidestore-source.json',
-        },
-      },
-    },
-  };
-}
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const viewports = [
   { width: 360, height: 640 },
@@ -45,6 +13,17 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
 }
 
+async function swipeToReply(target: Locator) {
+  await target.evaluate((element) => {
+    const pointer = (type: string, clientX: number, clientY: number) => element.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerType: 'touch', pointerId: 11, isPrimary: true, clientX, clientY,
+    }));
+    pointer('pointerdown', 280, 120);
+    pointer('pointermove', 185, 122);
+    pointer('pointerup', 185, 122);
+  });
+}
+
 test('entry is responsive across the supported viewport matrix', async ({ page }) => {
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
@@ -52,43 +31,6 @@ test('entry is responsive across the supported viewport matrix', async ({ page }
     await expect(page.getByRole('heading', { name: /Entra, dibuja/ })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
-});
-
-test('the update experience covers optional, mandatory, offline and empty manifests', async ({ page }) => {
-  await page.route(UPDATE_MANIFEST_URL, async (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(updateManifest()) }));
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Buscar actualizaciones' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Nueva versión disponible' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('0.1.0');
-  await expect(dialog.getByRole('button', { name: 'Más tarde' })).toBeVisible();
-  await expectNoHorizontalOverflow(page);
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-
-  await page.unroute(UPDATE_MANIFEST_URL);
-  await page.route(UPDATE_MANIFEST_URL, async (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(updateManifest({ mandatory: true })) }));
-  await page.getByRole('button', { name: 'Buscar actualizaciones' }).click();
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Más tarde' })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeVisible();
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(dialog).toBeVisible();
-  await expectNoHorizontalOverflow(page);
-
-  await page.unroute(UPDATE_MANIFEST_URL);
-  await page.route(UPDATE_MANIFEST_URL, async (route) => route.abort('failed'));
-  await page.reload();
-  await page.getByRole('button', { name: 'Buscar actualizaciones' }).click();
-  await expect(page.getByText('No pudimos comprobarlo ahora. Revisa tu conexión e inténtalo de nuevo.')).toBeVisible();
-
-  await page.unroute(UPDATE_MANIFEST_URL);
-  await page.route(UPDATE_MANIFEST_URL, async (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(updateManifest({ release: null })) }));
-  await page.getByRole('button', { name: 'Buscar actualizaciones' }).click();
-  await expect(page.getByText('Todavía no hay una versión pública disponible.')).toBeVisible();
 });
 
 test('two isolated clients exchange replies, typing and touch-friendly drawings', async ({ browser }) => {
@@ -118,13 +60,17 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await expect(second.getByText(firstMessage)).toBeVisible();
   await expect(second.locator('.typing-indicator')).toHaveText('');
 
-  await second.locator('.message').filter({ hasText: firstMessage }).getByRole('button', { name: 'Responder' }).click();
+  const incomingText = second.locator('.message').filter({ hasText: firstMessage }).locator('.message-swipe-target');
+  await swipeToReply(incomingText);
   await expect(second.locator('.reply-context')).toContainText('Ada');
+  await expect(second.getByRole('textbox', { name: 'Mensaje' })).toBeFocused();
   await second.getByRole('textbox', { name: 'Mensaje' }).fill('Respuesta al texto');
   await second.getByRole('button', { name: 'Enviar' }).click();
   await expect(first.locator('.message-reply-quote').last()).toContainText(firstMessage);
 
-  await first.locator('.message--own').filter({ hasText: firstMessage }).getByRole('button', { name: 'Responder' }).click();
+  const ownReply = first.locator('.message--own').filter({ hasText: firstMessage }).getByRole('button', { name: 'Responder a tu mensaje' });
+  await ownReply.hover();
+  await ownReply.click();
   await first.getByRole('textbox', { name: 'Mensaje' }).fill('Respuesta a mi propio mensaje');
   await first.getByRole('button', { name: 'Enviar' }).click();
   await expect(second.locator('.message-reply-quote').last()).toContainText(firstMessage);
@@ -133,7 +79,7 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await first.locator('input[type="file"]').setInputFiles({ name: 'nota.txt', mimeType: 'text/plain', buffer: Buffer.from('temporal') });
   expect((await uploadResponse).status()).toBe(201);
   await expect(second.getByText('nota.txt')).toBeVisible();
-  await second.locator('.message').filter({ hasText: 'nota.txt' }).getByRole('button', { name: 'Responder' }).click();
+  await swipeToReply(second.locator('.message').filter({ hasText: 'nota.txt' }).locator('.message-swipe-target'));
   await second.getByRole('textbox', { name: 'Mensaje' }).fill('Respuesta al archivo');
   await second.getByRole('button', { name: 'Enviar' }).click();
   await expect(first.locator('.message-reply-quote').last()).toContainText('nota.txt');
@@ -162,7 +108,7 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await first.getByRole('button', { name: 'Enviar dibujo' }).click();
   await expect(second.locator('.message-bubble--drawing canvas')).toHaveCount(1);
 
-  await second.locator('.message-bubble--drawing').last().locator('..').getByRole('button', { name: 'Responder' }).click();
+  await swipeToReply(second.locator('.message-bubble--drawing').last().locator('..'));
   await second.getByRole('textbox', { name: 'Mensaje' }).fill('Respuesta al dibujo');
   await second.getByRole('button', { name: 'Enviar' }).click();
   const lastQuote = first.locator('.message-reply-quote').last();
@@ -170,11 +116,23 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await lastQuote.click();
   await expect(first.locator('.message--highlighted')).toHaveCount(1);
 
+  const longMessage = 'Texto largo para comprobar que el chat no corta el contenido. '.repeat(18);
+  await first.getByRole('tab', { name: 'Texto' }).click();
+  await first.getByRole('textbox', { name: 'Mensaje' }).fill(longMessage);
+  await first.getByRole('button', { name: 'Enviar' }).click();
+  const longBubble = second.locator('.message').filter({ hasText: longMessage }).last();
+  await expect(longBubble.getByRole('button', { name: 'Leer más' })).toBeVisible();
+  await longBubble.getByRole('button', { name: 'Leer más' }).click();
+  await expect(longBubble.getByRole('button', { name: 'Ver menos' })).toBeVisible();
+
   for (const viewport of viewports) {
     await second.setViewportSize(viewport);
     await expect(second.getByRole('textbox', { name: 'Mensaje' })).toBeVisible();
     await expectNoHorizontalOverflow(second);
   }
+  await expect(second.getByRole('button', { name: 'Cerrar sala' })).toHaveCount(0);
+  await first.setViewportSize({ width: 390, height: 844 });
+  await expect(first.getByRole('button', { name: 'Cerrar sala' })).toBeVisible();
 
   await firstContext.close();
   await secondContext.close();

@@ -103,6 +103,7 @@ function observeServiceWorker(onUpdate: (registration: ServiceWorkerRegistration
 export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }: UpdateProviderProps) {
   const installedRef = useRef<InstalledVersion | undefined>(undefined);
   const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
+  const launchCheckStarted = useRef(false);
   const [installed, setInstalled] = useState<InstalledVersion>();
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [release, setRelease] = useState<UpdateRelease>();
@@ -168,26 +169,36 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
   }, []);
 
   useEffect(() => {
-    void loadInstalled();
-    if (!automaticChecksEnabled()) return;
-    if (Date.now() - readTimestamp() >= UPDATE_CHECK_INTERVAL_MS) {
-      const timer = window.setTimeout(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    void loadInstalled().then((current) => {
+      // Una app nativa comprueba cada vez que se abre. No mostramos ningún
+      // control manual en el chat: la versión nueva llega como aviso.
+      if (cancelled || launchCheckStarted.current || current.platform === 'web' || !automaticChecksEnabled()) return;
+      launchCheckStarted.current = true;
+      timer = window.setTimeout(() => {
         rememberCheck();
         void checkForUpdates();
       }, 0);
-      return () => window.clearTimeout(timer);
-    }
+    });
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, [checkForUpdates, loadInstalled]);
 
   useEffect(() => {
     let removeListener: (() => Promise<void>) | undefined;
     void App.addListener('appStateChange', ({ isActive }) => {
       if (!isActive || !automaticChecksEnabled() || Date.now() - readTimestamp() < UPDATE_CHECK_INTERVAL_MS) return;
-      rememberCheck();
-      void checkForUpdates();
+      void loadInstalled().then((current) => {
+        if (current.platform === 'web') return;
+        rememberCheck();
+        void checkForUpdates();
+      });
     }).then((handle) => { removeListener = handle.remove; }).catch(() => undefined);
     return () => { void removeListener?.(); };
-  }, [checkForUpdates]);
+  }, [checkForUpdates, loadInstalled]);
 
   useEffect(() => observeServiceWorker((registration) => {
     registrationRef.current = registration;

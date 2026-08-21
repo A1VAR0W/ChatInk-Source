@@ -91,7 +91,6 @@ export class RoomService {
       | 'roomMaxParticipants'
       | 'roomsPerSession'
       | 'maxMessagesPerRoom'
-      | 'maxMessageChars'
       | 'maxFilesPerRoom'
     >,
     readonly storage: TempStorage,
@@ -201,9 +200,6 @@ export class RoomService {
   postMessage(roomId: string, sessionId: string, alias: string, input: SendMessageInput): RoomMessage {
     const room = this.byId(roomId);
     if (!room.participants.has(sessionId)) throw new DomainError('NOT_IN_ROOM', 'Ya no formas parte de la sala', 403);
-    if (input.kind === 'text' && input.text.length > this.config.maxMessageChars) {
-      throw new DomainError('MESSAGE_TOO_LONG', 'El mensaje supera el limite permitido', 400);
-    }
     const existing = room.messageByClientId.get(input.clientId);
     if (existing !== undefined) return existing;
     const reply = input.replyToId === undefined ? undefined : this.replySnapshot(room, input.replyToId);

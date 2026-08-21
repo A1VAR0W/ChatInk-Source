@@ -1,6 +1,5 @@
 import { formatBytes } from '@pictochat/shared';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { useLocation } from 'react-router-dom';
 import { updateUrlForPlatform } from './updateService';
 import { useUpdates } from './UpdateProvider';
 
@@ -8,26 +7,15 @@ function openExternal(url: string): void {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-function statusMessage(status: ReturnType<typeof useUpdates>['status']): string | undefined {
-  if (status === 'checking') return 'Buscando actualizaciones…';
-  if (status === 'current') return 'Ya tienes la última versión.';
-  if (status === 'empty') return 'Todavía no hay una versión pública disponible.';
-  if (status === 'offline') return 'No pudimos comprobarlo ahora. Revisa tu conexión e inténtalo de nuevo.';
-  if (status === 'error') return 'No se pudo comprobar la actualización. Puedes seguir usando ChatInk.';
-  return undefined;
-}
-
 export function UpdateExperience() {
   const updates = useUpdates();
-  const location = useLocation();
   const dialogRef = useRef<HTMLDivElement>(null);
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [iosCopyState, setIosCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const release = updates.release;
   const useWebUpdate = updates.webUpdateAvailable && updates.installed?.platform === 'web';
-  const open = updates.dialogOpen && (release !== undefined || useWebUpdate);
-  const message = statusMessage(updates.status);
+  const open = updates.dialogOpen && ((updates.installed?.platform !== 'web' && release !== undefined) || useWebUpdate);
 
   useEffect(() => {
     if (!open) return;
@@ -105,14 +93,6 @@ export function UpdateExperience() {
 
   return (
     <>
-      <aside className={`update-surface ${location.pathname.startsWith('/room/') ? 'update-surface--room' : ''}`} aria-live="polite" aria-label="Actualizaciones de ChatInk">
-        <span>Versión {updates.installed?.version ?? '…'}</span>
-        <button type="button" className="text-button" onClick={() => void updates.checkForUpdates(true)} disabled={updates.status === 'checking'}>
-          {updates.status === 'checking' ? 'Buscando…' : 'Buscar actualizaciones'}
-        </button>
-        {message !== undefined && <p role={updates.status === 'offline' || updates.status === 'error' ? 'status' : undefined}>{message}</p>}
-      </aside>
-
       {open && (
         <div className="update-backdrop" role="presentation">
           <div
@@ -129,7 +109,7 @@ export function UpdateExperience() {
             {!useWebUpdate && release !== undefined && (
               <>
                 <p id="update-dialog-description" className="update-dialog__lead">
-                  Tienes la versión <strong>{updates.installed?.version ?? 'actual'}</strong>. La versión <strong>{release.version}</strong> está lista.
+                  Tienes la versión <strong>{updates.installed?.version ?? 'actual'}</strong>. La versión <strong>{release.version}</strong> está lista. Durante el despliegue la sala puede desconectarse; actualiza y vuelve a abrir ChatInk para reconectar.
                 </p>
                 <dl className="update-dialog__facts">
                   <div><dt>Versión instalada</dt><dd>{updates.installed?.version ?? '—'}</dd></div>

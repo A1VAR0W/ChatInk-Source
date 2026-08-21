@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { RoomSummary } from '@pictochat/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Brand } from '../components/Brand';
+import { Avatar } from '../components/Avatar';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { ApiClientError, api } from '../services/api';
 import { useSession } from '../state/session';
@@ -78,7 +79,7 @@ export function LobbyPage() {
     <main className="lobby-page">
       <header className="app-header">
         <Brand compact />
-        <div className="header-user"><span className="avatar">{session.alias.slice(0, 1).toUpperCase()}</span><span><small>Alias temporal</small><strong>{session.alias}</strong></span></div>
+        <div className="header-user"><Avatar alias={session.alias} /><span><small>Alias temporal</small><strong>{session.alias}</strong></span></div>
         <div className="header-actions"><ThemeToggle /><button type="button" className="text-button" onClick={() => { clearSession(); void navigate('/'); }}>Salir</button></div>
       </header>
       <div className="lobby-content">

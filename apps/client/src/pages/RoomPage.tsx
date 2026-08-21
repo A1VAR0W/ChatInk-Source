@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 import type { RoomMessage, TypingParticipant } from '@pictochat/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Brand } from '../components/Brand';
+import { Avatar } from '../components/Avatar';
 import { ChatComposer } from '../components/ChatComposer';
+import { ExitIcon } from '../components/Icons';
 import { MessageList } from '../components/MessageList';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { UploadTray, type UploadItem } from '../components/UploadTray';
@@ -101,7 +103,7 @@ function ActiveRoom({ roomId }: { roomId: string }) {
         <div className={`connection connection--${realtime.status}`}><i />{statusLabel(realtime.status)}</div>
         <button type="button" className="people-button" onClick={() => setShowPeople((value) => !value)} aria-expanded={showPeople}><span aria-hidden="true">◉</span>{realtime.participants.length}</button>
         <ThemeToggle />
-        {access.role === 'creator' && <button type="button" className="text-button danger" onClick={() => void close()}>Cerrar sala</button>}
+        {access.role === 'creator' && <button type="button" className="icon-button close-room-button" onClick={() => void close()} aria-label="Cerrar sala" title="Cerrar sala"><ExitIcon /></button>}
       </header>
 
       {realtime.status === 'reconnecting' && <div className="offline-banner">Reconectando… Tus mensajes no se duplicarán.</div>}
@@ -111,7 +113,9 @@ function ActiveRoom({ roomId }: { roomId: string }) {
         <section className={`chat-area ${composerMode === 'drawing' ? 'chat-area--drawing' : ''}`}>
           <div className="history"><MessageList messages={realtime.messages} ownId={session.sessionId} roomToken={access.roomToken} onReply={selectReply} /></div>
           <UploadTray uploads={uploads} dismiss={(id) => setUploads((current) => current.filter((item) => item.id !== id))} />
-          <div className="typing-indicator" role="status" aria-live="polite" aria-atomic="true">{activeTypingLabel}</div>
+          <div className={`typing-indicator ${activeTypingLabel === undefined ? '' : 'typing-indicator--active'}`} role="status" aria-live="polite" aria-atomic="true">
+            {activeTypingLabel !== undefined && <><span>{activeTypingLabel}</span><span className="typing-dots" aria-hidden="true"><i /><i /><i /></span></>}
+          </div>
           <ChatComposer
             disabled={realtime.status !== 'connected'}
             mode={composerMode}
@@ -126,7 +130,7 @@ function ActiveRoom({ roomId }: { roomId: string }) {
         </section>
         <aside className={`participants-panel ${showPeople ? 'participants-panel--open' : ''}`}>
           <div className="participants-title"><div><h2>En la sala</h2><span>{realtime.participants.length}/{access.room.maxParticipants}</span></div><button type="button" className="icon-button panel-close" onClick={() => setShowPeople(false)} aria-label="Cerrar participantes">×</button></div>
-          <ul>{realtime.participants.map((participant) => <li key={participant.id}><span className="avatar">{participant.alias.slice(0, 1).toUpperCase()}</span><div><strong>{participant.id === session.sessionId ? `${participant.alias} (tú)` : participant.alias}</strong><small>{participant.isCreator ? 'Creador/a' : 'Participante'}</small></div><i className="online-dot" title="En línea" /></li>)}</ul>
+          <ul>{realtime.participants.map((participant) => <li key={participant.id}><Avatar alias={participant.alias} /><div><strong>{participant.id === session.sessionId ? `${participant.alias} (tú)` : participant.alias}</strong><small>{participant.isCreator ? 'Creador/a' : 'Participante'}</small></div><i className="online-dot" title="En línea" /></li>)}</ul>
           <div className="expiry-note"><span aria-hidden="true">⌛</span><p><strong>Sala temporal</strong><br />Caduca como máximo el {new Intl.DateTimeFormat('es', { dateStyle: 'short', timeStyle: 'short' }).format(access.room.expiresAt)}.</p></div>
         </aside>
       </div>

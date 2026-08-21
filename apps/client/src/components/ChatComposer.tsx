@@ -81,6 +81,12 @@ export function ChatComposer({
     textarea.style.overflowY = textarea.scrollHeight > 144 ? 'auto' : 'hidden';
   }, [mode, text]);
 
+  useEffect(() => {
+    if (replyTo === undefined || mode !== 'text') return;
+    const frame = window.requestAnimationFrame(() => textareaRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [mode, replyTo]);
+
   const submit = () => {
     const value = text.trim();
     if (value.length === 0 || disabled || isComposing) return;
@@ -131,7 +137,7 @@ export function ChatComposer({
       )}
       <div className="mode-tabs" role="tablist" aria-label="Tipo de mensaje">
         <button type="button" role="tab" aria-selected={mode === 'text'} className={mode === 'text' ? 'active' : ''} onClick={() => selectMode('text')}>Texto</button>
-        <button type="button" role="tab" aria-selected={mode === 'drawing'} className={mode === 'drawing' ? 'active' : ''} onClick={() => selectMode('drawing')}>Dibujo <span className="badge">principal</span></button>
+        <button type="button" role="tab" aria-selected={mode === 'drawing'} className={mode === 'drawing' ? 'active' : ''} onClick={() => selectMode('drawing')}>Dibujo</button>
       </div>
       <div className="text-composer" hidden={mode !== 'text'}>
         {showEmojis && <div className="emoji-picker" aria-label="Emojis">{EMOJIS.map((emoji) => <button type="button" key={emoji} onClick={() => appendEmoji(emoji)} aria-label={`Añadir ${emoji}`}>{emoji}</button>)}</div>}
@@ -140,7 +146,7 @@ export function ChatComposer({
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(event) => setText(event.target.value.slice(0, 1000))}
+            onChange={(event) => setText(event.target.value)}
             onKeyDown={keyDown}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
@@ -148,7 +154,6 @@ export function ChatComposer({
             onBlur={() => setIsFocused(false)}
             disabled={disabled}
             rows={1}
-            maxLength={1000}
             placeholder={disabled ? 'Esperando conexión…' : 'Escribe algo…'}
             aria-label="Mensaje"
           />
@@ -156,7 +161,7 @@ export function ChatComposer({
           <input ref={fileInput} className="sr-only" type="file" multiple onChange={chooseFiles} />
           <button type="button" className="button send-button" onClick={submit} disabled={disabled || isComposing || text.trim().length === 0}>Enviar</button>
         </div>
-        <div className="text-meta"><span>Enter para enviar · Mayús+Enter para nueva línea</span><span>{text.length}/1000</span></div>
+        <div className="text-meta"><span>Enter para enviar · Mayús+Enter para nueva línea</span></div>
       </div>
       <DrawingCanvas active={mode === 'drawing'} onSend={sendDrawing} disabled={disabled} onDirtyChange={handleDrawingDirty} />
     </section>

@@ -85,7 +85,9 @@ export const strokeSchema = z.object({
 export const drawingPayloadSchema = z.object({
   width: z.number().int().min(100).max(2400),
   height: z.number().int().min(80).max(1600),
-  background: z.enum(['light', 'dark']),
+  // light/dark remain readable only for drawings already in a live room before
+  // the white-canvas migration. New drawings use white or the optional mark.
+  background: z.enum(['white', 'logo', 'light', 'dark']),
   strokes: z.array(strokeSchema).min(1).max(250),
 });
 
@@ -95,7 +97,7 @@ export type DrawingStroke = z.infer<typeof strokeSchema>;
 export const textMessageInputSchema = z.object({
   clientId: z.uuid(),
   kind: z.literal('text'),
-  text: z.string().trim().min(1).max(1000),
+  text: z.string().trim().min(1),
 });
 
 export const drawingMessageInputSchema = z.object({

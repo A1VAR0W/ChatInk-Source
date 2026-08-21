@@ -1,7 +1,7 @@
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`brand ${compact ? 'brand--compact' : ''}`} aria-label="ChatInk">
-      <span className="brand__mark" aria-hidden="true">〰</span>
+      <img className="brand__mark" src="/icons/icon-192.png" alt="" />
       <span>Chat<span>Ink</span></span>
     </div>
   );

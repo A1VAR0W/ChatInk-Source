@@ -23,7 +23,6 @@ export function testConfig(tempRoot: string, overrides: Partial<AppConfig> = {})
     roomMaxParticipants: 24,
     roomsPerSession: 5,
     maxMessagesPerRoom: 500,
-    maxMessageChars: 1000,
     maxFileBytes: 1024,
     maxFilesPerRoom: 40,
     apiRateLimitPerMinute: 1000,

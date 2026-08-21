@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { LatestUpdateManifest, UpdateRelease } from '@pictochat/shared';
 import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -112,17 +112,9 @@ describe('update service', () => {
 });
 
 describe('update experience', () => {
-  it('recuerda una actualización opcional descartada sin impedir una comprobación manual', async () => {
-    const fetchManifest = vi.fn().mockResolvedValue(manifest(release()));
-    render(<BrowserRouter><UpdateProvider fetchManifest={fetchManifest}><UpdateExperience /></UpdateProvider></BrowserRouter>);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Buscar actualizaciones' }));
-    await screen.findByRole('dialog', { name: 'Nueva versión disponible' });
-    fireEvent.click(screen.getByRole('button', { name: 'Más tarde' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(localStorage.getItem('chatink.update.dismissed-version')).toBe('1.10.0');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Buscar actualizaciones' }));
-    expect(await screen.findByRole('dialog', { name: 'Nueva versión disponible' })).toBeVisible();
+  it('no añade un control manual de actualizaciones a la web', () => {
+    render(<BrowserRouter><UpdateProvider fetchManifest={vi.fn().mockResolvedValue(manifest(release()))}><UpdateExperience /></UpdateProvider></BrowserRouter>);
+    expect(screen.queryByRole('button', { name: /Buscar actualizaciones/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Actualizaciones de ChatInk')).not.toBeInTheDocument();
   });
 });
