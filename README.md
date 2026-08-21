@@ -152,13 +152,7 @@ El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y
 
 El `versionCode` aumenta automáticamente con cada ejecución del workflow para que Play Console acepte las actualizaciones. Los dos artefactos se conservan durante 14 días.
 
-Para descargarlo:
-
-1. Abre la pestaña **Actions** del repositorio.
-2. Entra en **android-builder** y selecciona la ejecución de tu commit.
-3. En **Artifacts**, descarga el ZIP del formato que necesites y descomprímelo.
-
-La firma requiere estos secretos de Actions a nivel de repositorio: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`. El workflow nunca guarda la keystore en un artefacto y la elimina del runner incluso si falla. Para instalar el APK fuera de Google Play puede ser necesario habilitar temporalmente la instalación desde la aplicación que abre el archivo.
+Los builders se ejecutan manualmente para artifacts de desarrollo. Las releases oficiales se crean exclusivamente con un tag SemVer y se publican como assets en el repositorio público `A1VAR0W/ChatInk-Releases`; consulta la [guía de releases](docs/RELEASES.md) para los secretos, la verificación de firmas, SideStore y los comandos exactos.
 
 ### Evitar el bloqueo de Google Play Protect
 

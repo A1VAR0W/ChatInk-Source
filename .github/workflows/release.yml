@@ -1,0 +1,345 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag vMAJOR.MINOR.PATCH que quieres validar o reparar.
+        required: true
+        type: string
+      mode:
+        description: dry-run no publica; repair-metadata solo repara metadatos tras una publicación parcial auditada.
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - repair-metadata
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chatink-release-${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release context
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.context.outputs.tag }}
+      version: ${{ steps.context.outputs.version }}
+      version_code: ${{ steps.context.outputs.version_code }}
+      mode: ${{ steps.context.outputs.mode }}
+      source_ref: ${{ steps.context.outputs.source_ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve and validate release tag
+        id: context
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          DISPATCH_MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            release_tag="$GITHUB_REF_NAME"
+            mode="publish"
+            source_ref="$GITHUB_REF"
+          else
+            release_tag="${DISPATCH_TAG:-}"
+            mode="${DISPATCH_MODE:-}"
+            source_ref="$GITHUB_SHA"
+          fi
+
+          case "$mode" in
+            publish|dry-run|repair-metadata) ;;
+            *) echo 'Modo de release no soportado.' >&2; exit 1 ;;
+          esac
+
+          node scripts/release/version.mjs --tag "$release_tag" --github-output "$GITHUB_OUTPUT"
+          printf 'mode=%s\n' "$mode" >> "$GITHUB_OUTPUT"
+          printf 'source_ref=%s\n' "$source_ref" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: Quality gates
+    needs: prepare
+    if: needs.prepare.outputs.mode != 'repair-metadata'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: production
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.source_ref }}
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install reproducible dependencies
+        run: npm ci
+
+      - name: Validate release version
+        run: npm run release:validate-version -- --tag "${{ needs.prepare.outputs.tag }}"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Test release metadata tooling
+        run: npm run test:release
+
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+
+      - name: Reject production source maps
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_map="$(find apps/client/dist -type f -name '*.map' -print -quit)"
+          test -z "$source_map"
+
+  build-android:
+    name: Android release artifact
+    needs:
+      - prepare
+      - quality
+    if: needs.prepare.outputs.mode != 'repair-metadata'
+    uses: ./.github/workflows/android-builder.yml
+    with:
+      artifact_name: release-android-${{ needs.prepare.outputs.version }}
+      release_tag: ${{ needs.prepare.outputs.tag }}
+      target_environment: production
+    secrets: inherit
+
+  build-ios:
+    name: iOS release artifact
+    needs:
+      - prepare
+      - quality
+    if: needs.prepare.outputs.mode != 'repair-metadata'
+    uses: ./.github/workflows/ios-builder.yml
+    with:
+      artifact_name: release-ios-${{ needs.prepare.outputs.version }}
+      release_tag: ${{ needs.prepare.outputs.tag }}
+      target_environment: production
+
+  publish:
+    name: Publish public assets and metadata
+    needs:
+      - prepare
+      - quality
+      - build-android
+      - build-ios
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.prepare.outputs.mode == 'repair-metadata' ||
+      (needs.quality.result == 'success' && needs.build-android.result == 'success' && needs.build-ios.result == 'success'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RELEASES_REPOSITORY: A1VAR0W/ChatInk-Releases
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_VERSION_CODE: ${{ needs.prepare.outputs.version_code }}
+      RELEASE_MODE: ${{ needs.prepare.outputs.mode }}
+    steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.source_ref }}
+
+      - name: Download Android artifact
+        if: env.RELEASE_MODE != 'repair-metadata'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-android-${{ needs.prepare.outputs.version }}
+          path: release-artifacts
+
+      - name: Download iOS artifact
+        if: env.RELEASE_MODE != 'repair-metadata'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-ios-${{ needs.prepare.outputs.version }}
+          path: release-artifacts
+
+      - name: Validate publishing credential
+        if: env.RELEASE_MODE != 'dry-run'
+        shell: bash
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${RELEASES_TOKEN:-}" ]]; then
+            echo 'Falta RELEASES_TOKEN. Crea un fine-grained PAT limitado a A1VAR0W/ChatInk-Releases con Contents: Read and write.' >&2
+            exit 1
+          fi
+
+      - name: Download existing assets for metadata repair
+        if: env.RELEASE_MODE == 'repair-metadata'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          gh release view "$RELEASE_TAG" --repo "$RELEASES_REPOSITORY" >/dev/null
+          gh release download "$RELEASE_TAG" \
+            --repo "$RELEASES_REPOSITORY" \
+            --pattern "ChatInk-${RELEASE_VERSION}.apk" \
+            --pattern "ChatInk-${RELEASE_VERSION}.ipa" \
+            --dir release-artifacts
+
+      - name: Verify final assets and calculate SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_name="ChatInk-${RELEASE_VERSION}.apk"
+          ipa_name="ChatInk-${RELEASE_VERSION}.ipa"
+          artifact_directory="release-artifacts"
+          test -s "$artifact_directory/$apk_name"
+          test -s "$artifact_directory/$ipa_name"
+          test "$(find "$artifact_directory" -maxdepth 1 -type f -name "$apk_name" | wc -l)" -eq 1
+          test "$(find "$artifact_directory" -maxdepth 1 -type f -name "$ipa_name" | wc -l)" -eq 1
+
+          ipa_entries="$RUNNER_TEMP/final-ipa-entries.txt"
+          unzip -tq "$artifact_directory/$ipa_name"
+          unzip -Z1 "$artifact_directory/$ipa_name" > "$ipa_entries"
+          grep -Fxq 'Payload/App.app/Info.plist' "$ipa_entries"
+
+          (
+            cd "$artifact_directory"
+            sha256sum "$apk_name" "$ipa_name" > SHA256SUMS
+          )
+
+      - name: Refuse an existing public tag or release
+        if: env.RELEASE_MODE == 'publish'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$RELEASES_REPOSITORY" >/dev/null 2>&1; then
+            echo "La release $RELEASE_TAG ya existe en $RELEASES_REPOSITORY; no se sobrescribirá." >&2
+            exit 1
+          fi
+          if gh api "repos/$RELEASES_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "El tag público $RELEASE_TAG ya existe; no se sobrescribirá." >&2
+            exit 1
+          fi
+
+      - name: Create public GitHub Release
+        if: env.RELEASE_MODE == 'publish'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            "release-artifacts/ChatInk-${RELEASE_VERSION}.apk" \
+            "release-artifacts/ChatInk-${RELEASE_VERSION}.ipa" \
+            release-artifacts/SHA256SUMS \
+            --repo "$RELEASES_REPOSITORY" \
+            --title "ChatInk $RELEASE_VERSION" \
+            --notes "Official ChatInk release v$RELEASE_VERSION."
+
+      - name: Confirm public release assets
+        if: env.RELEASE_MODE != 'dry-run'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          assets="$RUNNER_TEMP/public-release-assets.txt"
+          gh release view "$RELEASE_TAG" --repo "$RELEASES_REPOSITORY" --json assets --jq '.assets[].name' > "$assets"
+          grep -Fxq "ChatInk-${RELEASE_VERSION}.apk" "$assets"
+          grep -Fxq "ChatInk-${RELEASE_VERSION}.ipa" "$assets"
+          grep -Fxq 'SHA256SUMS' "$assets"
+
+      - name: Checkout public metadata repository
+        uses: actions/checkout@v6
+        with:
+          repository: A1VAR0W/ChatInk-Releases
+          path: public-release-repository
+          token: ${{ secrets.RELEASES_TOKEN || github.token }}
+          persist-credentials: ${{ env.RELEASE_MODE != 'dry-run' }}
+          fetch-depth: 1
+
+      - name: Generate and validate public metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          metadata_directory="$GITHUB_WORKSPACE/public-release-repository"
+          apk="release-artifacts/ChatInk-${RELEASE_VERSION}.apk"
+          ipa="release-artifacts/ChatInk-${RELEASE_VERSION}.ipa"
+          published_at="$(date --utc --iso-8601=seconds)"
+          cp apps/client/public/icons/icon-512.png "$metadata_directory/icon-512.png"
+
+          node scripts/release/generate-public-metadata.mjs \
+            --output-directory "$metadata_directory" \
+            --tag "$RELEASE_TAG" \
+            --published-at "$published_at" \
+            --apk-sha256 "$(sha256sum "$apk" | awk '{print $1}')" \
+            --ipa-sha256 "$(sha256sum "$ipa" | awk '{print $1}')" \
+            --apk-size "$(stat --format='%s' "$apk")" \
+            --ipa-size "$(stat --format='%s' "$ipa")"
+          node scripts/release/validate-public-metadata.mjs --directory "$metadata_directory"
+
+      - name: Assert public repository contains only distribution files
+        shell: bash
+        run: |
+          set -euo pipefail
+          metadata_directory="$GITHUB_WORKSPACE/public-release-repository"
+          unexpected_file="$(find "$metadata_directory" -type f -not -path '*/.git/*' -printf '%P\n' | grep -Ev '^(README\.md|latest\.json|sidestore-source\.json|icon-512\.png)$' || true)"
+          if [[ -n "$unexpected_file" ]]; then
+            printf 'El repositorio público contiene un archivo no permitido:\n%s\n' "$unexpected_file" >&2
+            exit 1
+          fi
+
+      - name: Publish public metadata
+        if: env.RELEASE_MODE != 'dry-run'
+        shell: bash
+        run: |
+          set -euo pipefail
+          metadata_directory="$GITHUB_WORKSPACE/public-release-repository"
+          git -C "$metadata_directory" config user.name 'chatink-release-bot'
+          git -C "$metadata_directory" config user.email 'chatink-release-bot@users.noreply.github.com'
+          git -C "$metadata_directory" add -- README.md latest.json sidestore-source.json icon-512.png
+          if git -C "$metadata_directory" diff --cached --quiet; then
+            echo 'Los metadatos públicos ya estaban actualizados.'
+            exit 0
+          fi
+          git -C "$metadata_directory" commit -m "release: publish ChatInk v${RELEASE_VERSION}"
+          git -C "$metadata_directory" push origin HEAD:main
+
+      - name: Upload dry-run metadata preview
+        if: env.RELEASE_MODE == 'dry-run'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatInk-release-dry-run-${{ needs.prepare.outputs.version }}
+          path: |
+            public-release-repository/README.md
+            public-release-repository/latest.json
+            public-release-repository/sidestore-source.json
+          if-no-files-found: error
+          retention-days: 7

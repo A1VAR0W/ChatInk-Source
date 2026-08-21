@@ -1,29 +1,64 @@
 name: android-builder
 
 on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: Nombre del artifact de GitHub Actions.
+        required: true
+        type: string
+      release_tag:
+        description: Tag SemVer oficial; vacío solo para un build manual de desarrollo.
+        required: false
+        default: ""
+        type: string
+      target_environment:
+        description: Entorno GitHub del que se leen las URLs públicas.
+        required: true
+        type: string
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEY_ALIAS:
+        required: true
+      ANDROID_KEY_PASSWORD:
+        required: true
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - develop
-      - "codex/**"
-    paths:
-      - "apps/client/**"
-      - "packages/shared/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/android-builder.yml"
+    inputs:
+      artifact_name:
+        description: Nombre del artifact de GitHub Actions.
+        required: true
+        default: ChatInk-Android-development
+        type: string
+      release_tag:
+        description: Tag vMAJOR.MINOR.PATCH para un build reproducible; déjalo vacío para desarrollo.
+        required: false
+        default: ""
+        type: string
+      target_environment:
+        description: Entorno GitHub que contiene PUBLIC_SERVER_URL y PUBLIC_APP_URL.
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - production
 
 permissions:
   contents: read
 
 jobs:
   build-android:
-    name: Build and sign Android release APK + AAB
+    name: Build signed Android APK
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+      name: ${{ inputs.target_environment || 'development' }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -53,11 +88,39 @@ jobs:
       - name: Install reproducible dependencies
         run: npm ci
 
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${RELEASE_TAG:-}" ]]; then
+            node scripts/release/version.mjs --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+          else
+            package_version="$(node -p "require('./package.json').version")"
+            node scripts/release/version.mjs \
+              --development-package-version "$package_version" \
+              --development-run "$GITHUB_RUN_NUMBER" \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate public native URLs
+        shell: bash
+        env:
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          node scripts/release/validate-public-urls.mjs \
+            --server "${VITE_SERVER_URL:-}" \
+            --app "${VITE_PUBLIC_APP_URL:-}"
+
       - name: Build PWA
         run: npm run build:pwa
         env:
-          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL || 'https://chat-ink.tail552c89.ts.net' }}
-          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL || 'https://chat-ink.tail552c89.ts.net' }}
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
 
       - name: Create and sync Capacitor Android project
         working-directory: apps/client
@@ -72,16 +135,16 @@ jobs:
 
       - name: Set Android release version
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
           set -euo pipefail
           gradle_file="apps/client/android/app/build.gradle"
-          version_code="$GITHUB_RUN_NUMBER"
-          version_name="0.1.0-${GITHUB_RUN_NUMBER}"
-
-          sed -Ei "s/versionCode [0-9]+/versionCode ${version_code}/" "$gradle_file"
-          sed -Ei "s/versionName \"[^\"]+\"/versionName \"${version_name}\"/" "$gradle_file"
-          grep -Fq "versionCode ${version_code}" "$gradle_file"
-          grep -Fq "versionName \"${version_name}\"" "$gradle_file"
+          sed -Ei "s/versionCode [0-9]+/versionCode ${RELEASE_VERSION_CODE}/" "$gradle_file"
+          sed -Ei "s/versionName \"[^\"]+\"/versionName \"${RELEASE_VERSION}\"/" "$gradle_file"
+          grep -Fq "versionCode ${RELEASE_VERSION_CODE}" "$gradle_file"
+          grep -Fq "versionName \"${RELEASE_VERSION}\"" "$gradle_file"
 
       - name: Validate Android signing secrets
         shell: bash
@@ -104,7 +167,7 @@ jobs:
           done
 
           if (( ${#missing[@]} > 0 )); then
-            printf 'Faltan secretos de firma: %s\n' "${missing[*]}" >&2
+            printf 'Faltan secretos de firma Android: %s\n' "${missing[*]}" >&2
             exit 1
           fi
 
@@ -114,7 +177,7 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          keystore_path="$RUNNER_TEMP/chat-ink-release.keystore"
+          keystore_path="$RUNNER_TEMP/chatink-release.keystore"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
           test -s "$keystore_path"
           chmod 600 "$keystore_path"
@@ -127,14 +190,15 @@ jobs:
       - name: Align and sign release APK
         shell: bash
         env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           unsigned_apk="apps/client/android/app/build/outputs/apk/release/app-release-unsigned.apk"
-          aligned_apk="$RUNNER_TEMP/Chat-Ink-android-release-aligned.apk"
-          signed_apk="Chat-Ink-android-release.apk"
+          aligned_apk="$RUNNER_TEMP/ChatInk-aligned.apk"
+          signed_apk="ChatInk-${RELEASE_VERSION}.apk"
           test -s "$unsigned_apk"
 
           build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
@@ -156,13 +220,14 @@ jobs:
       - name: Sign release app bundle for Google Play
         shell: bash
         env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           unsigned_aab="apps/client/android/app/build/outputs/bundle/release/app-release.aab"
-          signed_aab="Chat-Ink-android-play-release.aab"
+          signed_aab="ChatInk-${RELEASE_VERSION}.aab"
           test -s "$unsigned_aab"
 
           jarsigner \
@@ -175,55 +240,61 @@ jobs:
 
       - name: Verify APK signature and alignment
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          signed_apk="Chat-Ink-android-release.apk"
+          signed_apk="ChatInk-${RELEASE_VERSION}.apk"
+          apk_entries="$RUNNER_TEMP/apk-entries.txt"
           test -s "$signed_apk"
-          unzip -l "$signed_apk" | grep -q 'AndroidManifest.xml'
+          unzip -Z1 "$signed_apk" > "$apk_entries"
+          grep -Fxq 'AndroidManifest.xml' "$apk_entries"
 
           build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           zipalign_path="$build_tools_dir/zipalign"
           apksigner_path="$build_tools_dir/apksigner"
-          test -x "$zipalign_path"
-          test -x "$apksigner_path"
           "$zipalign_path" -c -P 16 -v 4 "$signed_apk"
           "$apksigner_path" verify --verbose --print-certs "$signed_apk"
           sha256sum "$signed_apk" > "$signed_apk.sha256"
 
       - name: Verify app bundle signature and contents
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          signed_aab="Chat-Ink-android-play-release.aab"
+          signed_aab="ChatInk-${RELEASE_VERSION}.aab"
+          aab_entries="$RUNNER_TEMP/aab-entries.txt"
           test -s "$signed_aab"
           unzip -tq "$signed_aab"
-          unzip -Z1 "$signed_aab" | grep -q '^base/manifest/AndroidManifest.xml$'
-          unzip -Z1 "$signed_aab" | grep -Eq '^META-INF/[^/]+\.SF$'
-          unzip -Z1 "$signed_aab" | grep -Eq '^META-INF/[^/]+\.(RSA|DSA|EC)$'
+          unzip -Z1 "$signed_aab" > "$aab_entries"
+          grep -Fxq 'base/manifest/AndroidManifest.xml' "$aab_entries"
+          grep -Eq '^META-INF/[^/]+\.SF$' "$aab_entries"
+          grep -Eq '^META-INF/[^/]+\.(RSA|DSA|EC)$' "$aab_entries"
           jarsigner -verify -verbose -certs "$signed_aab"
           sha256sum "$signed_aab" > "$signed_aab.sha256"
 
       - name: Remove decoded keystore
         if: always()
         shell: bash
-        run: rm -f "${ANDROID_KEYSTORE_PATH:-$RUNNER_TEMP/chat-ink-release.keystore}"
+        run: rm -f "${ANDROID_KEYSTORE_PATH:-$RUNNER_TEMP/chatink-release.keystore}"
 
-      - name: Upload signed release artifact
+      - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Chat-Ink-Android-release
+          name: ${{ inputs.artifact_name }}
           path: |
-            Chat-Ink-android-release.apk
-            Chat-Ink-android-release.apk.sha256
+            ChatInk-${{ steps.version.outputs.version }}.apk
+            ChatInk-${{ steps.version.outputs.version }}.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
       - name: Upload signed Google Play app bundle
         uses: actions/upload-artifact@v4
         with:
-          name: Chat-Ink-Android-Play-release
+          name: ${{ inputs.artifact_name }}-play-bundle
           path: |
-            Chat-Ink-android-play-release.aab
-            Chat-Ink-android-play-release.aab.sha256
+            ChatInk-${{ steps.version.outputs.version }}.aab
+            ChatInk-${{ steps.version.outputs.version }}.aab.sha256
           if-no-files-found: error
           retention-days: 14
