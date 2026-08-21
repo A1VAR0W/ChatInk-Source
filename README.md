@@ -96,7 +96,7 @@ apps/client        Ionic React, PWA, Canvas y estado de sesión
 apps/server        Fastify, Socket.IO, seguridad y almacenamiento temporal
 packages/shared    Esquemas Zod, eventos y contratos compartidos
 docs               Protocolo, amenazas y ciclo de vida de datos
-.github/workflows  ios-builder y android-builder reproducibles y sin firma
+.github/workflows  builds reproducibles (Android firmado; iOS sin firmar)
 ```
 
 El cliente obtiene un JWT de sesión temporal y, al crear o entrar en una sala, un JWT limitado a esa sala y rol. Todas las acciones Socket.IO, subidas y descargas vuelven a autorizar estos tokens. El servidor asigna identificador, secuencia y tiempo a cada mensaje; `clientId` evita duplicados al reconectar.
@@ -143,17 +143,38 @@ Para descargarlo:
 
 Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. Para obtener uno instalable hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil de aprovisionamiento compatible con `com.doodledrop.app` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
 
-## Obtener el APK desde GitHub Actions
+## Obtener Android desde GitHub Actions
 
-El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar un APK `release`. Después lo alinea para páginas de 16 KiB, lo firma con la keystore privada de GitHub, verifica la firma y publica también su SHA-256. El artefacto `Chat-Ink-Android-release` se conserva durante 14 días.
+El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar dos salidas `release`, ambas firmadas con la keystore privada de GitHub y acompañadas de su SHA-256:
+
+- `Chat-Ink-Android-release`: APK alineado para páginas de 16 KiB, pensado para una instalación manual puntual.
+- `Chat-Ink-Android-Play-release`: Android App Bundle (`.aab`) firmado con la clave de subida, pensado para Google Play.
+
+El `versionCode` aumenta automáticamente con cada ejecución del workflow para que Play Console acepte las actualizaciones. Los dos artefactos se conservan durante 14 días.
 
 Para descargarlo:
 
 1. Abre la pestaña **Actions** del repositorio.
 2. Entra en **android-builder** y selecciona la ejecución de tu commit.
-3. En **Artifacts**, descarga `Chat-Ink-Android-release` y descomprime el ZIP descargado por GitHub.
+3. En **Artifacts**, descarga el ZIP del formato que necesites y descomprímelo.
 
 La firma requiere estos secretos de Actions a nivel de repositorio: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`. El workflow nunca guarda la keystore en un artefacto y la elimina del runner incluso si falla. Para instalar el APK fuera de Google Play puede ser necesario habilitar temporalmente la instalación desde la aplicación que abre el archivo.
+
+### Evitar el bloqueo de Google Play Protect
+
+Una firma válida no da reputación automática a un APK descargado desde GitHub. Por eso Play Protect puede mostrar que no conoce otras aplicaciones de este desarrollador aunque la firma sea correcta. La aplicación no puede desactivar ni ocultar ese control desde su código.
+
+La vía recomendada para que las pruebas se instalen mediante un canal reconocido es una [pista de prueba interna de Google Play](https://support.google.com/googleplay/android-developer/answer/9845334?hl=es):
+
+1. Antes de la primera subida, confirma el identificador en `apps/client/capacitor.config.ts`. Actualmente es `com.doodledrop.app`; Google Play lo fija de forma permanente al subir el primer artefacto.
+2. Crea la aplicación en Play Console y acepta **Play App Signing**.
+3. En **Probar y lanzar → Pruebas → Prueba interna**, crea una versión y sube `Chat-Ink-android-play-release.aab` desde el artefacto `Chat-Ink-Android-Play-release`.
+4. Añade las cuentas de Google de los testers, publica la pista y comparte su enlace de participación.
+5. Instala y actualiza Chat-Ink desde la ficha de Google Play que abre ese enlace, no desde el APK descargado de GitHub.
+
+En una aplicación nueva, Google Play usará la keystore configurada aquí como clave de subida y firmará los APK que entrega a los dispositivos con la clave de firma de la aplicación. Si también se distribuye fuera de Play y se necesita conservar exactamente la misma firma entre tiendas, hay que elegir esa estrategia durante la [configuración de Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756?hl=es).
+
+Para una distribución exclusivamente externa a Google Play también existe la [verificación de desarrolladores de Android](https://developer.android.com/developer-verification?hl=es). Registrar la identidad, el paquete y las claves será necesario durante el despliegue gradual anunciado por Android, pero no sustituye la instalación actual mediante una pista de Play ni garantiza por sí solo que desaparezca inmediatamente un aviso de reputación en un APK descargado directamente.
 
 Antes de compilar una app nativa funcional, configura las variables por separado en **Settings → Environments → development/production → Environment variables**:
 

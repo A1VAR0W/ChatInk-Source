@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build-android:
-    name: Build and sign Android release APK
+    name: Build and sign Android release APK + AAB
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
@@ -70,6 +70,19 @@ jobs:
         working-directory: apps/client/android
         run: chmod +x ./gradlew
 
+      - name: Set Android release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle_file="apps/client/android/app/build.gradle"
+          version_code="$GITHUB_RUN_NUMBER"
+          version_name="0.1.0-${GITHUB_RUN_NUMBER}"
+
+          sed -Ei "s/versionCode [0-9]+/versionCode ${version_code}/" "$gradle_file"
+          sed -Ei "s/versionName \"[^\"]+\"/versionName \"${version_name}\"/" "$gradle_file"
+          grep -Fq "versionCode ${version_code}" "$gradle_file"
+          grep -Fq "versionName \"${version_name}\"" "$gradle_file"
+
       - name: Validate Android signing secrets
         shell: bash
         env:
@@ -107,9 +120,9 @@ jobs:
           chmod 600 "$keystore_path"
           printf 'ANDROID_KEYSTORE_PATH=%s\n' "$keystore_path" >> "$GITHUB_ENV"
 
-      - name: Build unsigned release APK
+      - name: Build unsigned release APK and app bundle
         working-directory: apps/client/android
-        run: ./gradlew clean assembleRelease --no-daemon --stacktrace
+        run: ./gradlew clean assembleRelease bundleRelease --no-daemon --stacktrace
 
       - name: Align and sign release APK
         shell: bash
@@ -140,6 +153,26 @@ jobs:
             "$aligned_apk"
           rm -f "$aligned_apk"
 
+      - name: Sign release app bundle for Google Play
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          unsigned_aab="apps/client/android/app/build/outputs/bundle/release/app-release.aab"
+          signed_aab="Chat-Ink-android-play-release.aab"
+          test -s "$unsigned_aab"
+
+          jarsigner \
+            -keystore "$ANDROID_KEYSTORE_PATH" \
+            -storepass:env ANDROID_KEYSTORE_PASSWORD \
+            -keypass:env ANDROID_KEY_PASSWORD \
+            -signedjar "$signed_aab" \
+            "$unsigned_aab" \
+            "$ANDROID_KEY_ALIAS"
+
       - name: Verify APK signature and alignment
         shell: bash
         run: |
@@ -157,6 +190,19 @@ jobs:
           "$apksigner_path" verify --verbose --print-certs "$signed_apk"
           sha256sum "$signed_apk" > "$signed_apk.sha256"
 
+      - name: Verify app bundle signature and contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          signed_aab="Chat-Ink-android-play-release.aab"
+          test -s "$signed_aab"
+          unzip -tq "$signed_aab"
+          unzip -Z1 "$signed_aab" | grep -q '^base/manifest/AndroidManifest.xml$'
+          unzip -Z1 "$signed_aab" | grep -Eq '^META-INF/[^/]+\.SF$'
+          unzip -Z1 "$signed_aab" | grep -Eq '^META-INF/[^/]+\.(RSA|DSA|EC)$'
+          jarsigner -verify -verbose -certs "$signed_aab"
+          sha256sum "$signed_aab" > "$signed_aab.sha256"
+
       - name: Remove decoded keystore
         if: always()
         shell: bash
@@ -169,5 +215,15 @@ jobs:
           path: |
             Chat-Ink-android-release.apk
             Chat-Ink-android-release.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload signed Google Play app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chat-Ink-Android-Play-release
+          path: |
+            Chat-Ink-android-play-release.aab
+            Chat-Ink-android-play-release.aab.sha256
           if-no-files-found: error
           retention-days: 14
