@@ -8,7 +8,7 @@ if [[ "$EUID" -ne 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_ENV="$SCRIPT_DIR/.env"
+SOURCE_ENV="$SCRIPT_DIR/.env.production"
 TARGET_DIR="/opt/pictochat"
 SYSTEMD_DIR="/etc/systemd/system"
 
@@ -25,7 +25,7 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 if [[ ! -f "$SOURCE_ENV" ]]; then
-  echo "Copia deploy/.env.example a deploy/.env y configura sus valores" >&2
+  echo "Copia deploy/.env.production.example a deploy/.env.production y configura sus valores" >&2
   exit 1
 fi
 
@@ -53,13 +53,13 @@ install -d -m 0750 "$TARGET_DIR"
 install -m 0644 "$SCRIPT_DIR/compose.prod.yml" "$TARGET_DIR/compose.prod.yml"
 install -m 0644 "$SCRIPT_DIR/Caddyfile" "$TARGET_DIR/Caddyfile"
 install -m 0750 "$SCRIPT_DIR/update.sh" "$TARGET_DIR/update.sh"
-install -m 0600 "$SOURCE_ENV" "$TARGET_DIR/.env"
+install -m 0600 "$SOURCE_ENV" "$TARGET_DIR/.env.production"
 install -m 0644 "$SCRIPT_DIR/systemd/pictochat-update.service" "$SYSTEMD_DIR/pictochat-update.service"
 install -m 0644 "$SCRIPT_DIR/systemd/pictochat-update.timer" "$SYSTEMD_DIR/pictochat-update.timer"
 
-docker compose --project-name pictochat --env-file "$TARGET_DIR/.env" -f "$TARGET_DIR/compose.prod.yml" config --quiet
-docker compose --project-name pictochat --env-file "$TARGET_DIR/.env" -f "$TARGET_DIR/compose.prod.yml" pull
-docker compose --project-name pictochat --env-file "$TARGET_DIR/.env" -f "$TARGET_DIR/compose.prod.yml" up --detach
+docker compose --project-name pictochat --env-file "$TARGET_DIR/.env.production" -f "$TARGET_DIR/compose.prod.yml" config --quiet
+docker compose --project-name pictochat --env-file "$TARGET_DIR/.env.production" -f "$TARGET_DIR/compose.prod.yml" pull
+docker compose --project-name pictochat --env-file "$TARGET_DIR/.env.production" -f "$TARGET_DIR/compose.prod.yml" up --detach
 
 PICTOCHAT_DEPLOY_DIR="$TARGET_DIR" "$TARGET_DIR/update.sh"
 

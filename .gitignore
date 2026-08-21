@@ -3,7 +3,7 @@ dist/
 coverage/
 .env
 .env.*
-!.env.example
+!.env.*.example
 *.log
 *.tsbuildinfo
 .DS_Store
@@ -16,3 +16,8 @@ playwright-report/
 test-results/
 .capacitor/
 tmp/
+# Android signing
+*.keystore
+*.jks
+keystore.properties
+android/keystore.properties

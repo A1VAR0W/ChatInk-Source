@@ -43,13 +43,13 @@ El token necesita `read:packages`. No lo escribas en `.env`, en el repositorio n
 Clona el repositorio en el servidor y entra en él. Después:
 
 ```bash
-cp deploy/.env.example deploy/.env
+cp deploy/.env.production.example deploy/.env.production
 openssl rand -base64 48
-nano deploy/.env
+nano deploy/.env.production
 sudo bash deploy/install.sh
 ```
 
-En `deploy/.env` sustituye:
+En `deploy/.env.production` sustituye:
 
 - `APP_DOMAIN` por el dominio real, sin `https://`.
 - `ACME_EMAIL` por tu correo para avisos de certificados.
@@ -60,7 +60,7 @@ El instalador copia únicamente los archivos necesarios a `/opt/pictochat`, vali
 
 ## Cliente iOS después de publicar el dominio
 
-En GitHub, dentro de **Settings → Secrets and variables → Actions → Variables**, crea:
+En GitHub, dentro de **Settings → Environments → production → Environment variables**, crea:
 
 - `PUBLIC_SERVER_URL=https://chat.tudominio.es`
 - `PUBLIC_APP_URL=https://chat.tudominio.es`
@@ -71,13 +71,13 @@ Después vuelve a ejecutar `ios-builder`. El IPA se conectará al servidor públ
 
 ```bash
 # Estado
-sudo docker compose --project-name pictochat --env-file /opt/pictochat/.env -f /opt/pictochat/compose.prod.yml ps
+sudo docker compose --project-name pictochat --env-file /opt/pictochat/.env.production -f /opt/pictochat/compose.prod.yml ps
 
 # Logs de la aplicación
-sudo docker compose --project-name pictochat --env-file /opt/pictochat/.env -f /opt/pictochat/compose.prod.yml logs -f app
+sudo docker compose --project-name pictochat --env-file /opt/pictochat/.env.production -f /opt/pictochat/compose.prod.yml logs -f app
 
 # Logs de Caddy
-sudo docker compose --project-name pictochat --env-file /opt/pictochat/.env -f /opt/pictochat/compose.prod.yml logs -f caddy
+sudo docker compose --project-name pictochat --env-file /opt/pictochat/.env.production -f /opt/pictochat/compose.prod.yml logs -f caddy
 
 # Forzar una comprobación ahora
 sudo systemctl start pictochat-update.service
@@ -97,5 +97,5 @@ Cuando cambien `compose.prod.yml`, `Caddyfile`, los scripts o las unidades syste
 - Usa claves SSH y desactiva el acceso SSH por contraseña cuando sea posible.
 - Mantén Linux, Docker y Caddy actualizados.
 - No publiques el socket Docker ni montes `/var/run/docker.sock` en contenedores.
-- Guarda una copia segura de `/opt/pictochat/.env`; no necesitas respaldar salas o archivos porque son efímeros por diseño.
+- Guarda una copia segura de `/opt/pictochat/.env.production`; no necesitas respaldar salas o archivos porque son efímeros por diseño.
 - Rota el antiguo secreto del prototipo si llegó a ser real: eliminar `.env` de la rama no lo borra del historial de Git.

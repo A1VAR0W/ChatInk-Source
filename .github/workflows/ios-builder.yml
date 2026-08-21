@@ -1,28 +1,55 @@
 name: ios-builder
 
-run-name: Chat-Ink iOS build (${{ github.sha }})
-
 on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: Nombre del artifact de GitHub Actions.
+        required: true
+        type: string
+      release_tag:
+        description: Tag SemVer oficial; vacío solo para un build manual de desarrollo.
+        required: false
+        default: ""
+        type: string
+      target_environment:
+        description: Entorno GitHub del que se leen las URLs públicas.
+        required: true
+        type: string
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - "codex/**"
-    paths:
-      - "apps/client/**"
-      - "packages/shared/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/ios-builder.yml"
-      - "deploy/**"
+    inputs:
+      artifact_name:
+        description: Nombre del artifact de GitHub Actions.
+        required: true
+        default: ChatInk-iOS-development
+        type: string
+      release_tag:
+        description: Tag vMAJOR.MINOR.PATCH para un build reproducible; déjalo vacío para desarrollo.
+        required: false
+        default: ""
+        type: string
+      target_environment:
+        description: Entorno GitHub que contiene PUBLIC_SERVER_URL y PUBLIC_APP_URL.
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - production
 
 permissions:
   contents: read
 
 jobs:
-  build-ios-unsigned:
+  build-ios:
+    name: Build SideStore-compatible IPA
     runs-on: macos-26
     timeout-minutes: 35
+    environment:
+      name: ${{ inputs.target_environment || 'development' }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -36,11 +63,39 @@ jobs:
       - name: Install reproducible dependencies
         run: npm ci
 
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${RELEASE_TAG:-}" ]]; then
+            node scripts/release/version.mjs --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+          else
+            package_version="$(node -p "require('./package.json').version")"
+            node scripts/release/version.mjs \
+              --development-package-version "$package_version" \
+              --development-run "$GITHUB_RUN_NUMBER" \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate public native URLs
+        shell: bash
+        env:
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          node scripts/release/validate-public-urls.mjs \
+            --server "${VITE_SERVER_URL:-}" \
+            --app "${VITE_PUBLIC_APP_URL:-}"
+
       - name: Build PWA
         run: npm run build:pwa
         env:
-          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL || 'https://chat-ink.tail552c89.ts.net' }}
-          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL || 'https://chat-ink.tail552c89.ts.net' }}
+          VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
 
       - name: Create and sync Capacitor iOS project
         working-directory: apps/client
@@ -53,8 +108,13 @@ jobs:
         working-directory: apps/client/ios/App
         run: pod install --repo-update
 
-      - name: Build unsigned iPhone app from xcworkspace
+      - name: Build unsigned iPhone app for SideStore
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
+          set -euo pipefail
           xcodebuild \
             -workspace apps/client/ios/App/App.xcworkspace \
             -scheme App \
@@ -62,35 +122,56 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build/DerivedData \
+            MARKETING_VERSION="$RELEASE_VERSION" \
+            CURRENT_PROJECT_VERSION="$RELEASE_VERSION_CODE" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             clean build
 
-      - name: Package unsigned IPA
+      - name: Package IPA
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           app_path="build/DerivedData/Build/Products/Release-iphoneos/App.app"
+          package_root="$RUNNER_TEMP/chatink-ipa"
           test -d "$app_path"
-          rm -rf build/Payload
-          mkdir -p build/Payload
-          ditto "$app_path" build/Payload/App.app
+          rm -rf "$package_root"
+          mkdir -p "$package_root/Payload"
+          ditto "$app_path" "$package_root/Payload/App.app"
           (
-            cd build
-            ditto -c -k --sequesterRsrc --keepParent Payload ../Chat-Ink-unsigned.ipa
+            cd "$package_root"
+            ditto -c -k --sequesterRsrc --keepParent Payload "$GITHUB_WORKSPACE/ChatInk-${RELEASE_VERSION}.ipa"
           )
 
-      - name: Verify IPA structure
+      - name: Verify IPA structure and version
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
           set -euo pipefail
-          test -s Chat-Ink-unsigned.ipa
-          unzip -Z1 Chat-Ink-unsigned.ipa | grep -q '^Payload/App.app/Info.plist$'
+          ipa="ChatInk-${RELEASE_VERSION}.ipa"
+          app_info="build/DerivedData/Build/Products/Release-iphoneos/App.app/Info.plist"
+          expected_bundle_identifier="$(node --input-type=module -e 'import { APP } from "./scripts/release/release-config.mjs"; process.stdout.write(APP.bundleIdentifier)')"
+          ipa_entries="$RUNNER_TEMP/ipa-entries.txt"
+          test -s "$ipa"
+          test -f "$app_info"
+          unzip -tq "$ipa"
+          unzip -Z1 "$ipa" > "$ipa_entries"
+          grep -Fxq 'Payload/App.app/Info.plist' "$ipa_entries"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_info")" = "$expected_bundle_identifier"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_info")" = "$RELEASE_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_info")" = "$RELEASE_VERSION_CODE"
+          sha256sum "$ipa" > "$ipa.sha256"
 
-      - name: Upload artifact
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Chat-Ink-iOS-unsigned
-          path: Chat-Ink-unsigned.ipa
+          name: ${{ inputs.artifact_name }}
+          path: |
+            ChatInk-${{ steps.version.outputs.version }}.ipa
+            ChatInk-${{ steps.version.outputs.version }}.ipa.sha256
           if-no-files-found: error
           retention-days: 14

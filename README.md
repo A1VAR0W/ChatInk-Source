@@ -4,6 +4,20 @@ Chat-Ink es un MVP de chat efímero inspirado en la inmediatez de los chats de c
 
 No usa base de datos. Reiniciar el servidor elimina todas las salas y conversaciones. No implementa ni afirma cifrado de extremo a extremo.
 
+## Entornos
+
+Desarrollo y Producción están aislados por configuración, contenedores, secretos y flujo de GitHub:
+
+| | Desarrollo | Producción |
+| --- | --- | --- |
+| Rama/entorno GitHub | `develop`, `codex/**` → `development` | `main` → `production` |
+| Configuración local | `.env.development` | `deploy/.env.production` |
+| Docker Compose | `docker-compose.yml`, proyecto `pictochat-development` | `deploy/compose.prod.yml`, proyecto `pictochat` |
+| Cliente | Vite con hot reload en `:5173` | PWA compilado servido por Node/Caddy |
+| Imagen GHCR | `:development` desde `develop` | `:latest` desde `main` |
+
+Los archivos con valores reales están ignorados por Git. Solo se versionan las plantillas `*.example`; no reutilices el `TOKEN_SECRET` de un entorno en el otro. Consulta [la guía completa de entornos](docs/ENVIRONMENTS.md).
+
 ## Puesta en marcha en Windows con Docker
 
 Requisitos: Docker Desktop abierto. En este equipo Docker está instalado en el perfil del usuario; si una consola abierta antes de instalarlo responde que `docker` no existe, ciérrala y abre otra. También puedes habilitarlo en la sesión actual de PowerShell:
@@ -14,19 +28,16 @@ $env:Path = "$dockerHome\resources\bin;$dockerHome\resources\cli-plugins;$env:Pa
 docker version
 ```
 
-Prepara la configuración local, sustituye el secreto de ejemplo y arranca la aplicación completa:
+El compose de la raíz es exclusivamente de Desarrollo, usa un secreto local conocido y ofrece recarga automática:
 
 ```powershell
-Copy-Item .env.example .env
-$secret = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-(Get-Content .env) -replace '^TOKEN_SECRET=.*$', "TOKEN_SECRET=$secret" | Set-Content .env
 docker compose up --build -d
 docker compose ps
 Invoke-RestMethod http://localhost:3001/api/health
-Start-Process http://localhost:3001
+Start-Process http://localhost:5173
 ```
 
-El contenedor sirve el PWA, la API HTTP y Socket.IO desde `http://localhost:3001`. Para consultar registros y detenerlo:
+Vite sirve el cliente en `http://localhost:5173`; la API y Socket.IO escuchan en `http://localhost:3001`. Para consultar registros y detenerlo:
 
 ```powershell
 docker compose logs -f
@@ -49,11 +60,11 @@ Requisitos: Node.js 22+ y npm 10+.
 
 ```powershell
 npm ci
-Copy-Item .env.example .env
+Copy-Item .env.development.example .env.development
 npm run dev
 ```
 
-Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. En esta modalidad, cambia también `TOKEN_SECRET` en `.env` antes de exponer el servidor fuera de tu máquina.
+Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. `npm run dev` solo carga `.env.development` y nunca la configuración de Producción. El secreto incluido es deliberadamente local: no expongas este servidor a Internet.
 
 ## Comandos
 
@@ -62,7 +73,9 @@ Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. En esta
 | `npm run dev` | Tipos compartidos, API y cliente en modo watch |
 | `npm run dev:server` / `dev:client` | Desarrollo separado |
 | `npm run build` | Build de tipos, servidor y PWA |
+| `npm run build:production` | Build cargando `.env.production` si existe |
 | `npm run build:pwa` | Bundle web instalable |
+| `npm run docker:dev` / `docker:dev:down` | Arranca/detiene el stack Docker de Desarrollo |
 | `npm test` | Pruebas unitarias, integración HTTP y dos clientes Socket.IO |
 | `npm run test:e2e` | Playwright responsive y flujo de dos navegadores |
 | `npm run lint` | ESLint estricto |
@@ -83,7 +96,7 @@ apps/client        Ionic React, PWA, Canvas y estado de sesión
 apps/server        Fastify, Socket.IO, seguridad y almacenamiento temporal
 packages/shared    Esquemas Zod, eventos y contratos compartidos
 docs               Protocolo, amenazas y ciclo de vida de datos
-.github/workflows  ios-builder y android-builder reproducibles y sin firma
+.github/workflows  builds reproducibles (Android firmado; iOS sin firmar)
 ```
 
 El cliente obtiene un JWT de sesión temporal y, al crear o entrar en una sala, un JWT limitado a esa sala y rol. Todas las acciones Socket.IO, subidas y descargas vuelven a autorizar estos tokens. El servidor asigna identificador, secuencia y tiempo a cada mensaje; `clientId` evita duplicados al reconectar.
@@ -107,12 +120,12 @@ La garantía es a nivel de aplicación. No equivale a borrado forense del soport
 El proceso sirve HTTP y WebSocket detrás de un proxy/ingress. En producción termina TLS allí, fuerza HTTPS, redirige HTTP, configura HSTS y reenvía WebSocket; el navegador usa entonces HTTPS/WSS. `TRUST_PROXY=true` solo debe activarse detrás de un proxy de confianza. No se implementa E2EE: el servidor puede inspeccionar y validar el contenido antes de distribuirlo.
 
 ```powershell
-$env:TOKEN_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-$env:ALLOWED_ORIGINS = "https://chat.example.com"
-docker compose up --build -d
+Copy-Item deploy/.env.production.example deploy/.env.production
+# Edita deploy/.env.production y genera TOKEN_SECRET con al menos 32 bytes aleatorios.
+docker compose --env-file deploy/.env.production -f deploy/compose.prod.yml config
 ```
 
-El contenedor se ejecuta sin privilegios, con sistema de archivos de solo lectura y un `tmpfs` temporal. La imagen sirve el PWA y API desde el mismo origen en el puerto 3001.
+Producción no usa el compose de la raíz. El contenedor se ejecuta sin privilegios, con sistema de archivos de solo lectura y un `tmpfs` temporal. La imagen sirve el PWA y API desde el mismo origen en el puerto 3001.
 
 Para publicarlo desde un servidor doméstico con dominio, HTTPS automático, GHCR y actualizaciones con rollback, consulta [despliegue en servidor casero](docs/DEPLOY_HOME_SERVER.md).
 
@@ -130,24 +143,39 @@ Para descargarlo:
 
 Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. Para obtener uno instalable hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil de aprovisionamiento compatible con `com.doodledrop.app` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
 
-## Obtener el APK desde GitHub Actions
+## Obtener Android desde GitHub Actions
 
-El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar `Chat-Ink-android-unsigned.apk`. El APK se publica durante 14 días como artefacto `Chat-Ink-Android-unsigned`.
+El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar dos salidas `release`, ambas firmadas con la keystore privada de GitHub y acompañadas de su SHA-256:
 
-Para descargarlo:
+- `Chat-Ink-Android-release`: APK alineado para páginas de 16 KiB, pensado para una instalación manual puntual.
+- `Chat-Ink-Android-Play-release`: Android App Bundle (`.aab`) firmado con la clave de subida, pensado para Google Play.
 
-1. Abre la pestaña **Actions** del repositorio.
-2. Entra en **android-builder** y selecciona la ejecución de tu commit.
-3. En **Artifacts**, descarga `Chat-Ink-Android-unsigned` y descomprime el ZIP descargado por GitHub.
+El `versionCode` aumenta automáticamente con cada ejecución del workflow para que Play Console acepte las actualizaciones. Los dos artefactos se conservan durante 14 días.
 
-Este APK no está firmado. Para instalarlo en un dispositivo Android se necesita firmarlo con una clave de distribución, o habilitar la instalación de aplicaciones desconocidas para pruebas locales.
+Los builders se ejecutan manualmente para artifacts de desarrollo. Las releases oficiales se crean exclusivamente con un tag SemVer y se publican como assets en el repositorio público `A1VAR0W/ChatInk-Releases`; consulta la [guía de releases](docs/RELEASES.md) para los secretos, la verificación de firmas, SideStore y los comandos exactos.
 
-Antes de compilar una app nativa funcional, configura en **Settings → Secrets and variables → Actions → Variables**:
+### Evitar el bloqueo de Google Play Protect
+
+Una firma válida no da reputación automática a un APK descargado desde GitHub. Por eso Play Protect puede mostrar que no conoce otras aplicaciones de este desarrollador aunque la firma sea correcta. La aplicación no puede desactivar ni ocultar ese control desde su código.
+
+La vía recomendada para que las pruebas se instalen mediante un canal reconocido es una [pista de prueba interna de Google Play](https://support.google.com/googleplay/android-developer/answer/9845334?hl=es):
+
+1. Antes de la primera subida, confirma el identificador en `apps/client/capacitor.config.ts`. Actualmente es `com.doodledrop.app`; Google Play lo fija de forma permanente al subir el primer artefacto.
+2. Crea la aplicación en Play Console y acepta **Play App Signing**.
+3. En **Probar y lanzar → Pruebas → Prueba interna**, crea una versión y sube `Chat-Ink-android-play-release.aab` desde el artefacto `Chat-Ink-Android-Play-release`.
+4. Añade las cuentas de Google de los testers, publica la pista y comparte su enlace de participación.
+5. Instala y actualiza Chat-Ink desde la ficha de Google Play que abre ese enlace, no desde el APK descargado de GitHub.
+
+En una aplicación nueva, Google Play usará la keystore configurada aquí como clave de subida y firmará los APK que entrega a los dispositivos con la clave de firma de la aplicación. Si también se distribuye fuera de Play y se necesita conservar exactamente la misma firma entre tiendas, hay que elegir esa estrategia durante la [configuración de Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756?hl=es).
+
+Para una distribución exclusivamente externa a Google Play también existe la [verificación de desarrolladores de Android](https://developer.android.com/developer-verification?hl=es). Registrar la identidad, el paquete y las claves será necesario durante el despliegue gradual anunciado por Android, pero no sustituye la instalación actual mediante una pista de Play ni garantiza por sí solo que desaparezca inmediatamente un aviso de reputación en un APK descargado directamente.
+
+Antes de compilar una app nativa funcional, configura las variables por separado en **Settings → Environments → development/production → Environment variables**:
 
 - `PUBLIC_SERVER_URL`: URL HTTPS pública de la API, por ejemplo `https://api.example.com`.
 - `PUBLIC_APP_URL`: URL HTTPS pública del PWA, usada en los enlaces de invitación.
 
-Sin `PUBLIC_SERVER_URL`, el IPA se compila, pero la app nativa no puede encontrar la API desde un dispositivo. Estas dos variables son públicas y se incorporan al JavaScript; nunca pongas certificados o contraseñas en ellas.
+Cada rama toma las variables de su propio entorno GitHub. Sin `PUBLIC_SERVER_URL`, el IPA se compila, pero la app nativa no puede encontrar la API desde un dispositivo. Estas dos variables son públicas y se incorporan al JavaScript; nunca pongas certificados o contraseñas en ellas.
 
 Capacitor 8 usa Swift Package Manager por defecto, pero este workflow selecciona CocoaPods deliberadamente para producir y compilar `App.xcworkspace`, tal como exige el flujo `ios-builder` de este proyecto.
 
@@ -168,7 +196,7 @@ Los archivos históricos `backend/`, `requirements.txt` y `BaseDeDatos.txt` pert
 
 ## Formatos y límites
 
-Se admiten JPEG, PNG, GIF, WebP, AVIF, MP4, WebM, PDF, ZIP, documentos OOXML/ODF y texto UTF-8 reconocido. Los límites de participantes, mensajes, conexiones, creación, subida, tamaño y caducidad están centralizados en `.env.example`. El navegador hace una comprobación anticipada del tamaño y el servidor vuelve a imponerla durante el streaming.
+Se admiten JPEG, PNG, GIF, WebP, AVIF, MP4, WebM, PDF, ZIP, documentos OOXML/ODF y texto UTF-8 reconocido. Los límites de participantes, mensajes, conexiones, creación, subida, tamaño y caducidad están centralizados en las plantillas `.env.*.example`. El navegador hace una comprobación anticipada del tamaño y el servidor vuelve a imponerla durante el streaming.
 
 ## Limitaciones conocidas
 

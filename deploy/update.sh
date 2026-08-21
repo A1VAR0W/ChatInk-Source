@@ -4,7 +4,7 @@ umask 077
 
 DEPLOY_DIR="${PICTOCHAT_DEPLOY_DIR:-/opt/pictochat}"
 COMPOSE_FILE="$DEPLOY_DIR/compose.prod.yml"
-ENV_FILE="$DEPLOY_DIR/.env"
+ENV_FILE="$DEPLOY_DIR/.env.production"
 LOCK_FILE="/run/lock/pictochat-update.lock"
 ROLLBACK_IMAGE="pictochat-local:rollback"
 

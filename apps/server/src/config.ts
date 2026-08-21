@@ -69,7 +69,13 @@ export interface AppConfig {
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppConfig {
   const env = envSchema.parse(environment);
-  if (env.NODE_ENV === 'production' && env.TOKEN_SECRET === 'development-only-secret-change-me-now') {
+  const insecureSecrets = new Set([
+    'development-only-secret-change-me-now',
+    'local-docker-secret-change-before-production-123',
+    'replace-with-at-least-32-random-characters',
+    'replace-with-a-random-secret-of-at-least-32-characters',
+  ]);
+  if (env.NODE_ENV === 'production' && insecureSecrets.has(env.TOKEN_SECRET)) {
     throw new Error('TOKEN_SECRET debe configurarse de forma segura en produccion');
   }
 
