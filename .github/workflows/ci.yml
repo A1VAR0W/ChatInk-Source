@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n deploy/install.sh deploy/update.sh
+          bash -n deploy/install.sh deploy/update.sh deploy/update-preproduction.sh
           docker compose -f docker-compose.yml config --quiet
           docker compose --env-file deploy/.env.production.example -f deploy/compose.prod.yml config --quiet
           docker run --rm \
