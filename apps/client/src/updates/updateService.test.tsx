@@ -99,6 +99,7 @@ describe('update service', () => {
     expect(decideUpdate(manifest(release()), installed)).toMatchObject({ kind: 'available', mandatory: false });
     expect(decideUpdate(manifest(release({ mandatory: true })), installed)).toMatchObject({ kind: 'available', mandatory: true });
     expect(decideUpdate(manifest(release({ minimumSupportedVersion: '1.9.1' })), installed)).toMatchObject({ kind: 'available', mandatory: true });
+    expect(decideUpdate(manifest(release({ tag: 'v1.9.0', version: '1.9.0', versionCode: 1_009_001, minimumSupportedVersion: '1.9.1' })), installed)).toMatchObject({ kind: 'available', mandatory: true });
   });
 
   it('acepta únicamente las URLs públicas exactas y las rutas de cada plataforma', () => {

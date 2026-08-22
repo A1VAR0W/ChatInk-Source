@@ -158,8 +158,11 @@ export async function generatePublicMetadata(options) {
     ? existingRelease.notes
     : [`Publicación oficial de ChatInk v${version.version}.`];
   assert(Array.isArray(notes) && notes.every((note) => typeof note === 'string' && note.length > 0), 'Las notas de release no son válidas.');
-  const minimumSupportedVersion = mode === 'repair' ? existingRelease.minimumSupportedVersion : null;
-  const mandatory = mode === 'repair' ? existingRelease.mandatory : false;
+  const requestedMinimum = options.minimumSupportedVersion;
+  const minimumSupportedVersion = mode === 'repair'
+    ? existingRelease.minimumSupportedVersion
+    : requestedMinimum === undefined ? null : parseReleaseTag(requestedMinimum).version;
+  const mandatory = mode === 'repair' ? existingRelease.mandatory : options.mandatory === true;
   const newSideStoreVersion = {
     version: version.version,
     date: publishedAt,
@@ -251,6 +254,8 @@ async function main() {
   const apkSize = optionValue('--apk-size');
   const ipaSize = optionValue('--ipa-size');
   const mode = optionValue('--mode');
+  const minimumSupportedVersion = optionValue('--minimum-supported-version');
+  const mandatory = optionValue('--mandatory') === 'true';
 
   const result = await generatePublicMetadata({
     outputDirectory,
@@ -261,6 +266,8 @@ async function main() {
     apkSize,
     ipaSize,
     ...(mode === undefined ? {} : { mode }),
+    ...(minimumSupportedVersion === undefined ? {} : { minimumSupportedVersion }),
+    mandatory,
   });
   process.stdout.write(`${JSON.stringify({ version: result.latest.release?.version, versionCode: result.latest.release?.versionCode })}\n`);
 }

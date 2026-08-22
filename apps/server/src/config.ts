@@ -34,6 +34,9 @@ const envSchema = z.object({
   MESSAGE_RATE_LIMIT_PER_MINUTE: positiveInteger(60),
   UPLOAD_RATE_LIMIT_PER_MINUTE: positiveInteger(12),
   CONNECTION_RATE_LIMIT_PER_MINUTE: positiveInteger(20),
+  MIN_SUPPORTED_CLIENT_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.0.0'),
+  LATEST_CLIENT_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.0.0'),
+  CLIENT_RELEASE_URL: z.string().url().default('https://github.com/A1VAR0W/ChatInk-Releases/releases'),
 });
 
 export interface AppConfig {
@@ -61,6 +64,9 @@ export interface AppConfig {
   messageRateLimitPerMinute: number;
   uploadRateLimitPerMinute: number;
   connectionRateLimitPerMinute: number;
+  minSupportedClientVersion: string;
+  latestClientVersion: string;
+  clientReleaseUrl: string;
 }
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -100,5 +106,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     messageRateLimitPerMinute: env.MESSAGE_RATE_LIMIT_PER_MINUTE,
     uploadRateLimitPerMinute: env.UPLOAD_RATE_LIMIT_PER_MINUTE,
     connectionRateLimitPerMinute: env.CONNECTION_RATE_LIMIT_PER_MINUTE,
+    minSupportedClientVersion: env.MIN_SUPPORTED_CLIENT_VERSION,
+    latestClientVersion: env.LATEST_CLIENT_VERSION,
+    clientReleaseUrl: env.CLIENT_RELEASE_URL,
   };
 }

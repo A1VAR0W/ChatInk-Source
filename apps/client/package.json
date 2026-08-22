@@ -1,6 +1,6 @@
 {
   "name": "@pictochat/client",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,6 +21,7 @@
     "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.5.0",
     "@capacitor/ios": "^8.5.0",
+    "@capacitor/keyboard": "^8.0.0",
     "@ionic/react": "^9.0.0",
     "@pictochat/shared": "0.1.0",
     "ionicons": "^8.0.13",

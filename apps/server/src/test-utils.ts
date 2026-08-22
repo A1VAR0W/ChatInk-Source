@@ -29,6 +29,9 @@ export function testConfig(tempRoot: string, overrides: Partial<AppConfig> = {})
     messageRateLimitPerMinute: 60,
     uploadRateLimitPerMinute: 12,
     connectionRateLimitPerMinute: 20,
+    minSupportedClientVersion: '0.0.0',
+    latestClientVersion: '0.0.0',
+    clientReleaseUrl: 'https://example.test/releases',
     ...overrides,
   };
 }

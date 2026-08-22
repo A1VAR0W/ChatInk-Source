@@ -62,7 +62,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root, ion-app { min-height: 100%; margin: 0; }
+html, body, #root, ion-app { height: 100%; min-height: 0; margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 button, input, textarea { font: inherit; }
 button { color: inherit; }
@@ -121,7 +121,7 @@ code { font-family: "SFMono-Regular", Consolas, monospace; }
 .brand--compact .brand__mark { width: 34px; height: 34px; border-radius: 10px; }
 .eyebrow { color: var(--primary); font-size: 12px; letter-spacing: .17em; font-weight: 850; }
 
-.entry-page { height: 100%; min-height: 100vh; overflow-x: hidden; overflow-y: auto; position: relative; display: flex; align-items: center; justify-content: center; padding: 110px 24px 70px; background: radial-gradient(circle at 15% 20%, var(--primary-soft), transparent 32%), radial-gradient(circle at 88% 77%, var(--green-soft), transparent 30%), var(--bg); }
+.entry-page { height: var(--chatink-visible-viewport-height, 100dvh); min-height: 0; overflow-x: hidden; overflow-y: auto; position: relative; display: flex; align-items: center; justify-content: center; padding: 110px 24px 70px; background: radial-gradient(circle at 15% 20%, var(--primary-soft), transparent 32%), radial-gradient(circle at 88% 77%, var(--green-soft), transparent 30%), var(--bg); }
 .entry-page::before { content: ""; position: absolute; inset: 0; opacity: .19; pointer-events: none; background-image: radial-gradient(var(--ink-muted) .7px, transparent .7px); background-size: 20px 20px; }
 .entry-top { position: absolute; top: max(24px, env(safe-area-inset-top)); left: 7vw; right: 7vw; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
 .entry-card { position: relative; z-index: 1; width: min(670px, 100%); padding: 54px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: var(--shadow-lg); }
@@ -197,7 +197,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .room-card span { color: var(--ink-muted); font-size: 12px; }
 .room-card code { color: var(--primary); font-weight: 750; letter-spacing: .08em; }
 
-.room-page { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.room-page { height: var(--chatink-visible-viewport-height, 100dvh); min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .room-header { position: relative; flex: none; padding-top: max(12px, env(safe-area-inset-top)); }
 .back-button { display: none; }
 .room-identity { display: flex; flex-direction: column; min-width: 0; }

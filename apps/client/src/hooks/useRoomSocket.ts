@@ -13,6 +13,7 @@ import type {
 } from '@pictochat/shared';
 import { io, type Socket } from 'socket.io-client';
 import { SERVER_URL } from '../services/api';
+import { clientMetadata, reportUnsupportedClient } from '../platform/clientMetadata';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'offline' | 'closed';
 export type DisplayMessage = RoomMessage & { pending?: boolean; failed?: boolean };
@@ -38,7 +39,7 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
     const endpoint = SERVER_URL || window.location.origin;
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(endpoint, {
       path: '/socket.io',
-      auth: { sessionToken: session.token, roomToken: access.roomToken },
+      auth: { sessionToken: session.token, roomToken: access.roomToken, client: clientMetadata },
       reconnection: true,
       reconnectionAttempts: 12,
       reconnectionDelay: 600,
@@ -63,6 +64,7 @@ export function useRoomSocket(access: RoomAccessResponse, session: SessionRespon
       setError('No se pudo recuperar la conexion. Comprueba tu red e intentalo de nuevo.');
     });
     socket.on('connect_error', (socketError) => {
+      if ((socketError as Error & { data?: { code?: string } }).data?.code === 'CLIENT_VERSION_UNSUPPORTED') reportUnsupportedClient();
       setStatus('reconnecting');
       setError(socketError.message || 'No se pudo conectar con la sala');
     });

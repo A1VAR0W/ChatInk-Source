@@ -128,11 +128,22 @@ jobs:
 
       - name: Create and sync Capacitor Android project
         working-directory: apps/client
+        env:
+          CHATINK_BUILD_CHANNEL: ${{ inputs.target_environment || 'preproduction' }}
         run: |
           npx cap add android
           node ../../scripts/native/configure-projects.mjs
           npm run assets:generate:android
           npx cap sync android
+
+      - name: Verify Android native identity matches channel
+        shell: bash
+        env:
+          CHATINK_BUILD_CHANNEL: ${{ inputs.target_environment || 'preproduction' }}
+        run: |
+          set -euo pipefail
+          expected_id="$(node --input-type=module -e 'import { appForChannel } from "./scripts/release/release-config.mjs"; process.stdout.write(appForChannel(process.env.CHATINK_BUILD_CHANNEL).bundleIdentifier)')"
+          grep -Fq "applicationId \"${expected_id}\"" apps/client/android/app/build.gradle
 
       - name: Make Gradle wrapper executable
         working-directory: apps/client/android

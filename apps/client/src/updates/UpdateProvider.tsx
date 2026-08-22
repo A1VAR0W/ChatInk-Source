@@ -11,6 +11,8 @@ import {
   readInstalledVersion,
   type InstalledVersion,
 } from './updateService';
+import { CLIENT_VERSION_UNSUPPORTED_EVENT } from '../platform/clientMetadata';
+import { UpdateExperience } from './UpdateExperience';
 
 const LAST_CHECK_KEY = 'chatink.update.last-check';
 const DISMISSED_VERSION_KEY = 'chatink.update.dismissed-version';
@@ -113,6 +115,7 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
   const [mandatory, setMandatory] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [webUpdateAvailable, setWebUpdateAvailable] = useState(false);
+  const [launchCheckComplete, setLaunchCheckComplete] = useState(() => !Capacitor.isNativePlatform());
 
   const loadInstalled = useCallback(async (): Promise<InstalledVersion> => {
     if (installedRef.current !== undefined) return installedRef.current;
@@ -148,6 +151,8 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
       setMandatory(false);
       setDialogOpen(false);
       setStatus(error instanceof UpdateCheckError && (error.code === 'network' || error.code === 'timeout') ? 'offline' : 'error');
+    } finally {
+      setLaunchCheckComplete(true);
     }
   }, [fetchManifest, loadInstalled]);
 
@@ -180,7 +185,12 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
     void loadInstalled().then((current) => {
       // Una app nativa comprueba cada vez que se abre. No mostramos ningún
       // control manual en el chat: la versión nueva llega como aviso.
-      if (cancelled || launchCheckStarted.current || current.platform === 'web' || !automaticChecksEnabled()) return;
+      if (cancelled) return;
+      if (current.platform === 'web' || !automaticChecksEnabled()) {
+        setLaunchCheckComplete(true);
+        return;
+      }
+      if (launchCheckStarted.current) return;
       launchCheckStarted.current = true;
       timer = window.setTimeout(() => {
         rememberCheck();
@@ -192,6 +202,15 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
       if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [checkForUpdates, loadInstalled]);
+
+  useEffect(() => {
+    const onUnsupported = () => {
+      setLaunchCheckComplete(false);
+      void checkForUpdates(true);
+    };
+    window.addEventListener(CLIENT_VERSION_UNSUPPORTED_EVENT, onUnsupported);
+    return () => window.removeEventListener(CLIENT_VERSION_UNSUPPORTED_EVENT, onUnsupported);
+  }, [checkForUpdates]);
 
   useEffect(() => {
     let removeListener: (() => Promise<void>) | undefined;
@@ -234,7 +253,13 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
     applyWebUpdate,
   }), [applyWebUpdate, channel, checkForUpdates, closeDialog, dialogOpen, dismissUpdate, installed, mandatory, release, status, webUpdateAvailable]);
 
-  return <UpdateContext.Provider value={value}>{children}</UpdateContext.Provider>;
+  const blockUntilNativePolicyChecked = !launchCheckComplete && (installed === undefined || installed.platform !== 'web');
+  return (
+    <UpdateContext.Provider value={value}>
+      {blockUntilNativePolicyChecked ? <div className="app-loading" role="status">Comprobando la compatibilidad de ChatInk…</div> : children}
+      <UpdateExperience />
+    </UpdateContext.Provider>
+  );
 }
 
 export function useUpdates(): UpdateContextValue {

@@ -94,9 +94,10 @@ export function assertTrustedRelease(release: UpdateRelease, channel: UpdateChan
 export function decideUpdate(manifest: LatestUpdateManifest, installed: InstalledVersion): UpdateDecision {
   if (manifest.release === null) return { kind: 'empty' };
   assertTrustedRelease(manifest.release, manifest.channel);
-  if (compareVersions(manifest.release.version, installed.version) <= 0) return { kind: 'current' };
   const mandatory = manifest.release.mandatory
     || (manifest.release.minimumSupportedVersion !== null && compareVersions(installed.version, manifest.release.minimumSupportedVersion) < 0);
+  if (mandatory) return { kind: 'available', release: manifest.release, mandatory: true };
+  if (compareVersions(manifest.release.version, installed.version) <= 0) return { kind: 'current' };
   return { kind: 'available', release: manifest.release, mandatory };
 }
 
