@@ -366,7 +366,7 @@ jobs:
         run: |
           set -euo pipefail
           metadata_directory="$GITHUB_WORKSPACE/public-release-repository"
-          unexpected_file="$(find "$metadata_directory" -type f -not -path '*/.git/*' -printf '%P\n' | grep -Ev '^(README\.md|latest\.json|sidestore-source\.json|icon-512\.png)$' || true)"
+          unexpected_file="$(find "$metadata_directory" -type f -not -path '*/.git/*' -printf '%P\n' | grep -Ev '^(README\.md|latest\.json|sidestore-source\.json|icon-512\.png|\.github/workflows/production-mobile\.yml)$' || true)"
           if [[ -n "$unexpected_file" ]]; then
             printf 'El repositorio público contiene un archivo no permitido:\n%s\n' "$unexpected_file" >&2
             exit 1

@@ -13,6 +13,7 @@ function renderComposer(overrides: Partial<ComponentProps<typeof ChatComposer>> 
       onFiles={vi.fn()}
       onCancelReply={vi.fn()}
       onTypingChange={vi.fn()}
+      onDrawingActivityChange={vi.fn()}
       onModeChange={vi.fn()}
       {...overrides}
     />,

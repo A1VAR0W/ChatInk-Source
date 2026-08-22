@@ -6,12 +6,12 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import type { DrawingPayload, DrawingStroke } from '@pictochat/shared';
+import type { DrawingOperation, DrawingPayload, DrawingStroke } from '@pictochat/shared';
 import { DrawingPreview, paintDrawing } from './DrawingPreview';
-import { CanvasIcon, EraserIcon, InkMarkIcon, PencilIcon, RedoIcon, TrashIcon, UndoIcon } from './Icons';
+import { CanvasIcon, EraserIcon, FillIcon, InkMarkIcon, PencilIcon, RedoIcon, TrashIcon, UndoIcon } from './Icons';
 
 const COLORS = ['#17162b', '#6c5ce7', '#0984e3', '#00a884', '#f39c12', '#e84393', '#d63031', '#ffffff'];
-const EMPTY: DrawingStroke[] = [];
+const EMPTY: DrawingOperation[] = [];
 const MAX_POINTS_PER_STROKE = 4_000;
 const WHITE = '#ffffff';
 
@@ -24,27 +24,29 @@ export function DrawingCanvas({
   disabled,
   active,
   onDirtyChange,
+  onDrawingActivityChange,
 }: {
   onSend: (drawing: DrawingPayload) => void;
   disabled: boolean;
   active: boolean;
   onDirtyChange: (dirty: boolean) => void;
+  onDrawingActivityChange: (isDrawing: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeStroke = useRef<DrawingStroke | undefined>(undefined);
   const activePointerId = useRef<number | undefined>(undefined);
-  const strokesRef = useRef<DrawingStroke[]>(EMPTY);
+  const strokesRef = useRef<DrawingOperation[]>(EMPTY);
   const closePreviewButton = useRef<HTMLButtonElement>(null);
-  const [strokes, setStrokes] = useState<DrawingStroke[]>(EMPTY);
-  const [redoStack, setRedoStack] = useState<DrawingStroke[]>(EMPTY);
+  const [strokes, setStrokes] = useState<DrawingOperation[]>(EMPTY);
+  const [redoStack, setRedoStack] = useState<DrawingOperation[]>(EMPTY);
   const [color, setColor] = useState(COLORS[0] ?? '#17162b');
   const [width, setWidth] = useState(5);
-  const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');
+  const [tool, setTool] = useState<'pencil' | 'eraser' | 'fill'>('pencil');
   const [background, setBackground] = useState<ComposerBackground>('white');
   const [showPreview, setShowPreview] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 440 });
 
-  const drawing = useCallback((nextStrokes: DrawingStroke[]): DrawingPayload => ({
+  const drawing = useCallback((nextStrokes: DrawingOperation[]): DrawingPayload => ({
     width: 800,
     height: 440,
     background,
@@ -86,6 +88,12 @@ export function DrawingCanvas({
   useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
 
   useEffect(() => {
+    if (!active) onDrawingActivityChange(false);
+  }, [active, onDrawingActivityChange]);
+
+  useEffect(() => () => onDrawingActivityChange(false), [onDrawingActivityChange]);
+
+  useEffect(() => {
     if (!showPreview) return;
     closePreviewButton.current?.focus();
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -107,10 +115,17 @@ export function DrawingCanvas({
   const start = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (disabled || !active || !event.isPrimary || activePointerId.current !== undefined) return;
     event.preventDefault();
+    if (tool === 'fill') {
+      const fill = { type: 'fill' as const, color, point: point(event.nativeEvent, event.currentTarget) };
+      setRedoStack([]);
+      setStrokes((current) => [...current, fill]);
+      return;
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     activePointerId.current = event.pointerId;
-    activeStroke.current = { color, width, tool, points: [point(event.nativeEvent, event.currentTarget)] };
+    activeStroke.current = { type: 'stroke', color, width, tool, points: [point(event.nativeEvent, event.currentTarget)] };
     setRedoStack([]);
+    onDrawingActivityChange(true);
     render(strokesRef.current, activeStroke.current);
   };
 
@@ -132,6 +147,7 @@ export function DrawingCanvas({
     const completedStroke = activeStroke.current;
     activeStroke.current = undefined;
     activePointerId.current = undefined;
+    onDrawingActivityChange(false);
     setStrokes((current) => [...current, completedStroke]);
   };
 
@@ -170,6 +186,7 @@ export function DrawingCanvas({
       <div className="drawing-tools" aria-label="Herramientas de dibujo">
         <button type="button" className={tool === 'pencil' ? 'tool active' : 'tool'} onClick={() => setTool('pencil')} aria-pressed={tool === 'pencil'} aria-label="Lápiz" title="Lápiz"><PencilIcon /></button>
         <button type="button" className={tool === 'eraser' ? 'tool active' : 'tool'} onClick={() => setTool('eraser')} aria-pressed={tool === 'eraser'} aria-label="Goma" title="Goma"><EraserIcon /></button>
+        <button type="button" className={tool === 'fill' ? 'tool active' : 'tool'} onClick={() => setTool('fill')} aria-pressed={tool === 'fill'} aria-label="Cubo de pintura" title="Cubo de pintura"><FillIcon /></button>
         <div className="drawing-background" role="group" aria-label="Fondo del lienzo">
           <button type="button" className={background === 'white' ? 'tool active' : 'tool'} onClick={() => setBackground('white')} aria-pressed={background === 'white'} aria-label="Fondo blanco" title="Fondo blanco"><CanvasIcon /></button>
           <button type="button" className={background === 'logo' ? 'tool active' : 'tool'} onClick={() => setBackground('logo')} aria-pressed={background === 'logo'} aria-label="Fondo con icono ChatInk" title="Fondo con icono ChatInk"><InkMarkIcon /></button>

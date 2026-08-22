@@ -24,7 +24,7 @@ describe('RoomService lifecycle', () => {
     now = 1_700_000_000_000;
     storage = new TempStorage(root);
     await storage.initialize();
-    rooms = new RoomService(testConfig(root, { roomEmptyTtlMs: 1_000, roomMaxAgeMs: 5_000 }), storage, () => now);
+    rooms = new RoomService(testConfig(root, { roomEmptyTtlMs: 1_000 }), storage, () => now);
   });
 
   afterEach(async () => {
@@ -77,7 +77,7 @@ describe('RoomService lifecycle', () => {
     })).toThrow(/no esta disponible/);
   });
 
-  it('expires empty and maximum-age rooms and removes their files', async () => {
+  it('expires rooms five minutes after they become empty and removes their files', async () => {
     const room = await rooms.createRoom('creator', 'Ada', { name: 'Caduca', visibility: 'public' });
     const roomDirectory = join(root, room.id);
     await mkdir(roomDirectory, { recursive: true });
@@ -87,10 +87,10 @@ describe('RoomService lifecycle', () => {
     expect(rooms.hasRoom(room.id)).toBe(false);
     await expect(access(roomDirectory)).rejects.toThrow();
 
-    const oldRoom = await rooms.createRoom('creator-2', 'Lin', { name: 'Max age', visibility: 'private' });
-    rooms.connectParticipant(oldRoom.id, 'creator-2', 'Lin', 'socket-z');
+    const activeRoom = await rooms.createRoom('creator-2', 'Lin', { name: 'Activa', visibility: 'private' });
+    rooms.connectParticipant(activeRoom.id, 'creator-2', 'Lin', 'socket-z');
     now += 5_001;
     await rooms.sweep(now);
-    expect(rooms.hasRoom(oldRoom.id)).toBe(false);
+    expect(rooms.hasRoom(activeRoom.id)).toBe(true);
   });
 });

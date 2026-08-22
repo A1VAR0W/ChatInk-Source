@@ -113,7 +113,7 @@ Consulta [protocolo WebSocket](docs/WEBSOCKET_PROTOCOL.md), [modelo de amenazas]
 
 ## Datos efímeros
 
-- Una sala se elimina al cerrarla su creador, al superar `ROOM_MAX_AGE_MS` (24 h por defecto) o tras permanecer vacía `ROOM_EMPTY_TTL_MS` (10 min).
+- Una sala se elimina al cerrarla su creador o tras permanecer vacía `ROOM_EMPTY_TTL_MS` (5 min por defecto).
 - El borrado vacía mapas en memoria y elimina recursivamente solo el subdirectorio controlado de esa sala.
 - En arranque se limpia `TEMP_ROOT`; un barrido periódico quita salas caducadas y archivos huérfanos.
 - En `SIGINT`/`SIGTERM` se ejecuta el mismo cierre y limpieza.

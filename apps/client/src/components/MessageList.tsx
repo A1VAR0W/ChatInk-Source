@@ -50,6 +50,25 @@ type SwipeState = {
   target: HTMLElement;
 };
 
+type MessageGroup = {
+  senderId: string;
+  senderAlias: string;
+  messages: DisplayMessage[];
+};
+
+function groupMessages(messages: DisplayMessage[]): MessageGroup[] {
+  return messages.reduce<MessageGroup[]>((groups, message) => {
+    const current = groups.at(-1);
+    const previous = current?.messages.at(-1);
+    if (current !== undefined && continuesGroup(previous, message)) {
+      current.messages.push(message);
+      return groups;
+    }
+    groups.push({ senderId: message.sender.id, senderAlias: message.sender.alias, messages: [message] });
+    return groups;
+  }, []);
+}
+
 export function MessageList({
   messages,
   ownId,
@@ -173,55 +192,66 @@ export function MessageList({
   }
 
   const originalIds = new Set(messages.map((message) => message.id));
+  const messageGroups = groupMessages(messages);
   return (
     <div ref={listRef} className="message-list" aria-live="polite" aria-label="Mensajes de la sala">
-      {messages.map((message, index) => {
-        const own = message.sender.id === ownId;
-        const grouped = continuesGroup(messages[index - 1], message);
-        const originalAvailable = message.reply !== undefined && originalIds.has(message.reply.messageId);
-        const replyButton = (
-          <button type="button" className="message-reply-action" onClick={() => onReply(message)} aria-label={`Responder a ${own ? 'tu mensaje' : message.sender.alias}`} title="Responder">
-            <ReplyIcon className={own ? '' : 'message-reply-action__incoming'} />
-          </button>
-        );
+      {messageGroups.map((group) => {
+        const own = group.senderId === ownId;
+        const first = group.messages[0];
+        if (first === undefined) return null;
         return (
-          <article
-            key={message.clientId}
-            ref={(element) => {
-              if (element === null) messageElements.current.delete(message.id);
-              else messageElements.current.set(message.id, element);
-            }}
-            className={`message ${own ? 'message--own' : ''} ${grouped ? 'message--grouped' : 'message--group-start'} ${message.failed ? 'message--failed' : ''} ${highlightedId === message.id ? 'message--highlighted' : ''}`}
-          >
-            {!grouped && <header className="message-header"><Avatar alias={message.sender.alias} className="avatar--message" label={false} /><div><strong>{own ? 'Tú' : message.sender.alias}</strong><span>{message.pending ? 'Enviando…' : timeLabel(message.createdAt)}</span></div></header>}
-            <div
-              className={`message-swipe-target ${own ? 'message-swipe-target--own' : ''}`}
-              onPointerDown={(event) => beginSwipe(event, message)}
-              onPointerMove={moveSwipe}
-              onPointerUp={finishSwipe}
-              onPointerCancel={finishSwipe}
-            >
-              {own && replyButton}
-              <div className={`message-bubble message-bubble--${message.kind}`}>
-                {message.reply !== undefined && (
-                  <button
-                    type="button"
-                    className="message-reply-quote"
-                    disabled={!originalAvailable}
-                    onClick={() => locateOriginal(message.reply?.messageId ?? '')}
-                    aria-label={originalAvailable ? `Ir al ${replyKindLabel(message.reply.kind).toLowerCase()} de ${message.reply.senderAlias}` : `Referencia a ${replyKindLabel(message.reply.kind).toLowerCase()} ya no disponible`}
-                  >
-                    <span>{message.reply.senderAlias} · {replyKindLabel(message.reply.kind)}</span>
-                    <strong>{message.reply.preview}</strong>
+          <section key={first.clientId} className={`message-group ${own ? 'message-group--own' : ''}`}>
+            <header className="message-header"><Avatar alias={group.senderAlias} className="avatar--message" label={false} /><div><strong>{own ? 'Tú' : group.senderAlias}</strong><span>{first.pending ? 'Enviando…' : timeLabel(first.createdAt)}</span></div></header>
+            <div className="message-group__items">
+              {group.messages.map((message, index) => {
+                const grouped = index > 0;
+                const originalAvailable = message.reply !== undefined && originalIds.has(message.reply.messageId);
+                const replyButton = (
+                  <button type="button" className="message-reply-action" onClick={() => onReply(message)} aria-label={`Responder a ${own ? 'tu mensaje' : message.sender.alias}`} title="Responder">
+                    <ReplyIcon className={own ? '' : 'message-reply-action__incoming'} />
                   </button>
-                )}
-                <MessageContent message={message} roomToken={roomToken} />
-                {grouped && <time className="message-time">{message.pending ? 'Enviando…' : timeLabel(message.createdAt)}</time>}
-              </div>
-              {!own && replyButton}
+                );
+                return (
+                  <article
+                    key={message.clientId}
+                    ref={(element) => {
+                      if (element === null) messageElements.current.delete(message.id);
+                      else messageElements.current.set(message.id, element);
+                    }}
+                    className={`message ${own ? 'message--own' : ''} ${grouped ? 'message--grouped' : 'message--group-start'} ${index === group.messages.length - 1 ? 'message--group-last' : ''} ${message.failed ? 'message--failed' : ''} ${highlightedId === message.id ? 'message--highlighted' : ''}`}
+                  >
+                    <div
+                      className={`message-swipe-target ${own ? 'message-swipe-target--own' : ''}`}
+                      onPointerDown={(event) => beginSwipe(event, message)}
+                      onPointerMove={moveSwipe}
+                      onPointerUp={finishSwipe}
+                      onPointerCancel={finishSwipe}
+                    >
+                      {own && replyButton}
+                      <div className={`message-bubble message-bubble--${message.kind}`}>
+                        {message.reply !== undefined && (
+                          <button
+                            type="button"
+                            className="message-reply-quote"
+                            disabled={!originalAvailable}
+                            onClick={() => locateOriginal(message.reply?.messageId ?? '')}
+                            aria-label={originalAvailable ? `Ir al ${replyKindLabel(message.reply.kind).toLowerCase()} de ${message.reply.senderAlias}` : `Referencia a ${replyKindLabel(message.reply.kind).toLowerCase()} ya no disponible`}
+                          >
+                            <span>{message.reply.senderAlias} · {replyKindLabel(message.reply.kind)}</span>
+                            <strong>{message.reply.preview}</strong>
+                          </button>
+                        )}
+                        <MessageContent message={message} roomToken={roomToken} />
+                        <time className="message-time">{message.pending ? 'Enviando…' : timeLabel(message.createdAt)}</time>
+                      </div>
+                      {!own && replyButton}
+                    </div>
+                    {message.failed && <small className="error-text">No se pudo enviar.</small>}
+                  </article>
+                );
+              })}
             </div>
-            {message.failed && <small className="error-text">No se pudo enviar.</small>}
-          </article>
+          </section>
         );
       })}
       {unreadCount > 0 && (

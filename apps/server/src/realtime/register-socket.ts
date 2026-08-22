@@ -4,7 +4,7 @@ import type {
   ServerToClientEvents,
   SocketData,
 } from '@pictochat/shared';
-import { sendMessageSchema, typingStateSchema, type TypingParticipant } from '@pictochat/shared';
+import { drawingStateSchema, sendMessageSchema, typingStateSchema, type DrawingParticipant, type TypingParticipant } from '@pictochat/shared';
 import type { Server } from 'socket.io';
 import type { AppConfig } from '../config.js';
 import { DomainError, type RoomService } from '../domain/room-service.js';
@@ -25,9 +25,10 @@ export function registerSocketServer(
   config: Pick<AppConfig, 'allowedOrigins' | 'messageRateLimitPerMinute' | 'connectionRateLimitPerMinute'>,
 ): void {
   const limiter = new MemoryRateLimiter();
-  const disconnectTimers = new Map<string, { roomId: string; timer: NodeJS.Timeout }>();
   const typingTimers = new Map<string, NodeJS.Timeout>();
   const typingByRoom = new Map<string, Map<string, TypingSession>>();
+  const drawingTimers = new Map<string, NodeJS.Timeout>();
+  const drawingByRoom = new Map<string, Map<string, TypingSession>>();
 
   const emitTyping = (roomId: string) => {
     const sessions = typingByRoom.get(roomId);
@@ -84,6 +85,62 @@ export function registerSocketServer(
     typingByRoom.delete(roomId);
   };
 
+  const drawingParticipants = (roomId: string): DrawingParticipant[] => {
+    const sessions = drawingByRoom.get(roomId);
+    return sessions === undefined
+      ? []
+      : Array.from(sessions, ([id, participant]) => ({ id, alias: participant.alias }))
+        .filter((participant) => participant.alias.length > 0)
+        .sort((left, right) => left.alias.localeCompare(right.alias, 'es'));
+  };
+
+  const emitDrawing = (roomId: string) => io.to(roomId).emit('room:drawing', drawingParticipants(roomId));
+
+  const clearDrawingForSocket = (roomId: string, sessionId: string, socketId: string) => {
+    const timer = drawingTimers.get(socketId);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      drawingTimers.delete(socketId);
+    }
+    const sessions = drawingByRoom.get(roomId);
+    const participant = sessions?.get(sessionId);
+    if (participant === undefined || !participant.socketIds.delete(socketId)) return;
+    if (participant.socketIds.size > 0) return;
+    sessions?.delete(sessionId);
+    if (sessions?.size === 0) drawingByRoom.delete(roomId);
+    emitDrawing(roomId);
+  };
+
+  const setDrawing = (roomId: string, sessionId: string, alias: string, socketId: string, isDrawing: boolean) => {
+    if (!isDrawing) {
+      clearDrawingForSocket(roomId, sessionId, socketId);
+      return;
+    }
+    const sessions = drawingByRoom.get(roomId) ?? new Map<string, TypingSession>();
+    const hadDrawingSession = sessions.has(sessionId);
+    const participant = sessions.get(sessionId) ?? { alias, socketIds: new Set<string>() };
+    participant.alias = alias;
+    participant.socketIds.add(socketId);
+    sessions.set(sessionId, participant);
+    drawingByRoom.set(roomId, sessions);
+    const previousTimer = drawingTimers.get(socketId);
+    if (previousTimer !== undefined) clearTimeout(previousTimer);
+    const timer = setTimeout(() => clearDrawingForSocket(roomId, sessionId, socketId), 5_000);
+    timer.unref();
+    drawingTimers.set(socketId, timer);
+    if (!hadDrawingSession) emitDrawing(roomId);
+  };
+
+  const clearRoomDrawing = (roomId: string) => {
+    for (const [socketId, timer] of drawingTimers) {
+      const socket = io.sockets.sockets.get(socketId);
+      if (socket?.data.roomId !== roomId) continue;
+      clearTimeout(timer);
+      drawingTimers.delete(socketId);
+    }
+    drawingByRoom.delete(roomId);
+  };
+
   io.use((socket, next) => {
     void (async () => {
       try {
@@ -109,11 +166,7 @@ export function registerSocketServer(
     onParticipants: (roomId, participants) => io.to(roomId).emit('room:participants', participants),
     onDeleted: (roomId, reason) => {
       clearRoomTyping(roomId);
-      for (const [socketId, pending] of disconnectTimers) {
-        if (pending.roomId !== roomId) continue;
-        clearTimeout(pending.timer);
-        disconnectTimers.delete(socketId);
-      }
+      clearRoomDrawing(roomId);
       io.to(roomId).emit('room:closed', { reason });
       io.in(roomId).disconnectSockets(true);
     },
@@ -126,6 +179,7 @@ export function registerSocketServer(
       void socket.join(roomId);
       const state = roomService.connectParticipant(roomId, sessionId, alias, socket.id);
       socket.emit('room:state', state);
+      socket.emit('room:drawing', drawingParticipants(roomId));
     } catch (error) {
       const message = error instanceof DomainError ? error.message : 'No se pudo entrar en la sala';
       socket.emit('server:error', { code: 'JOIN_FAILED', message });
@@ -142,6 +196,7 @@ export function registerSocketServer(
         const input = sendMessageSchema.parse(rawInput);
         const message = roomService.postMessage(roomId, sessionId, alias, input);
         clearTypingForSocket(roomId, sessionId, socket.id);
+        clearDrawingForSocket(roomId, sessionId, socket.id);
         acknowledge({ ok: true, messageId: message.id });
       } catch (error) {
         const response = error instanceof DomainError
@@ -168,14 +223,16 @@ export function registerSocketServer(
       setTyping(roomId, sessionId, alias, socket.id, parsed.data.isTyping);
     });
 
+    socket.on('drawing:set', (rawInput) => {
+      const parsed = drawingStateSchema.safeParse(rawInput);
+      if (!parsed.success) return;
+      setDrawing(roomId, sessionId, alias, socket.id, parsed.data.isDrawing);
+    });
+
     socket.on('disconnect', () => {
       clearTypingForSocket(roomId, sessionId, socket.id);
-      const timer = setTimeout(() => {
-        roomService.disconnectParticipant(roomId, sessionId, socket.id);
-        disconnectTimers.delete(socket.id);
-      }, 5_000);
-      timer.unref();
-      disconnectTimers.set(socket.id, { roomId, timer });
+      clearDrawingForSocket(roomId, sessionId, socket.id);
+      roomService.disconnectParticipant(roomId, sessionId, socket.id);
     });
   });
 }

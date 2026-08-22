@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       release_tag:
-        description: Tag SemVer oficial; vacío solo para un build manual de desarrollo.
+        description: Tag SemVer oficial; vacío solo para un build manual de preproducción.
         required: false
         default: ""
         type: string
@@ -30,21 +30,20 @@ on:
       artifact_name:
         description: Nombre del artifact de GitHub Actions.
         required: true
-        default: ChatInk-Android-development
+        default: ChatInk-Android-preproduction
         type: string
       release_tag:
-        description: Tag vMAJOR.MINOR.PATCH para un build reproducible; déjalo vacío para desarrollo.
+        description: Tag vMAJOR.MINOR.PATCH para un build reproducible; déjalo vacío para preproducción.
         required: false
         default: ""
         type: string
       target_environment:
-        description: Entorno GitHub que contiene PUBLIC_SERVER_URL y PUBLIC_APP_URL.
+        description: Entorno GitHub de preproducción que contiene PUBLIC_SERVER_URL y PUBLIC_APP_URL.
         required: true
-        default: development
+        default: preproduction
         type: choice
         options:
-          - development
-          - production
+          - preproduction
 
 permissions:
   contents: read
@@ -55,7 +54,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
-      name: ${{ inputs.target_environment || 'development' }}
+      name: ${{ inputs.target_environment || 'preproduction' }}
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_code: ${{ steps.version.outputs.version_code }}
@@ -124,7 +123,8 @@ jobs:
           VITE_APP_VERSION: ${{ steps.version.outputs.version }}
           VITE_APP_VERSION_CODE: ${{ steps.version.outputs.version_code }}
           VITE_RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          VITE_UPDATE_MANIFEST_URL: https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json
+          VITE_ENABLE_UPDATE_CHECKS: ${{ (inputs.target_environment || 'preproduction') == 'preproduction' && 'false' || 'true' }}
+          VITE_UPDATE_MANIFEST_URL: ${{ (inputs.target_environment || 'preproduction') == 'preproduction' && '' || 'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json' }}
 
       - name: Create and sync Capacitor Android project
         working-directory: apps/client

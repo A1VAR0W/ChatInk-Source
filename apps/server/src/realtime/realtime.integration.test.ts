@@ -2,6 +2,7 @@ import { rm } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import type {
   ClientToServerEvents,
+  DrawingParticipant,
   RoomAccessResponse,
   RoomMessage,
   RoomState,
@@ -36,6 +37,10 @@ function nextMessage(socket: ClientSocket): Promise<RoomMessage> {
 
 function nextTyping(socket: ClientSocket): Promise<TypingParticipant[]> {
   return new Promise((resolve) => socket.once('room:typing', resolve));
+}
+
+function nextDrawing(socket: ClientSocket): Promise<DrawingParticipant[]> {
+  return new Promise((resolve) => socket.once('room:drawing', resolve));
 }
 
 function multipart(clientId: string, filename: string, bytes: Buffer, type = 'application/octet-stream') {
@@ -175,6 +180,31 @@ describe('two-client realtime flow', () => {
     const stoppedOnDisconnect = nextTyping(member.socket);
     creator.socket.disconnect();
     await expect(stoppedOnDisconnect).resolves.toEqual([]);
+  });
+
+  it('announces canvas activity and clears it as soon as the user stops or leaves', async () => {
+    const ada = await session('Ada');
+    const lin = await session('Lin');
+    const created = (await application.app.inject({ method: 'POST', url: '/api/rooms', headers: { authorization: `Bearer ${ada.token}` }, payload: { name: 'Canvas', visibility: 'public' } })).json<RoomAccessResponse>();
+    const joined = (await application.app.inject({ method: 'POST', url: `/api/rooms/${created.room.code}/join`, headers: { authorization: `Bearer ${lin.token}` }, payload: {} })).json<RoomAccessResponse>();
+    const creator = await connectClient(url, ada, created);
+    const member = await connectClient(url, lin, joined);
+    sockets.push(creator.socket, member.socket);
+
+    const started = nextDrawing(member.socket);
+    creator.socket.emit('drawing:set', { isDrawing: true });
+    await expect(started).resolves.toEqual([{ id: ada.sessionId, alias: 'Ada' }]);
+
+    const stopped = nextDrawing(member.socket);
+    creator.socket.emit('drawing:set', { isDrawing: false });
+    await expect(stopped).resolves.toEqual([]);
+
+    const restarted = nextDrawing(member.socket);
+    creator.socket.emit('drawing:set', { isDrawing: true });
+    await restarted;
+    const clearedOnLeave = nextDrawing(member.socket);
+    creator.socket.disconnect();
+    await expect(clearedOnLeave).resolves.toEqual([]);
   });
 
   it('expires typing presence defensively after the server timeout', async () => {

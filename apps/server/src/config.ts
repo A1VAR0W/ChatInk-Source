@@ -21,8 +21,7 @@ const envSchema = z.object({
   TEMP_ROOT: z.string().optional(),
   SESSION_TTL_MS: positiveInteger(43_200_000),
   ROOM_TOKEN_TTL_MS: positiveInteger(86_400_000),
-  ROOM_MAX_AGE_MS: positiveInteger(86_400_000),
-  ROOM_EMPTY_TTL_MS: positiveInteger(600_000),
+  ROOM_EMPTY_TTL_MS: positiveInteger(300_000),
   CLEANUP_INTERVAL_MS: positiveInteger(60_000),
   ORPHAN_MAX_AGE_MS: positiveInteger(3_600_000),
   ROOM_MAX_PARTICIPANTS: positiveInteger(24),
@@ -49,7 +48,6 @@ export interface AppConfig {
   tempRoot: string;
   sessionTtlMs: number;
   roomTokenTtlMs: number;
-  roomMaxAgeMs: number;
   roomEmptyTtlMs: number;
   cleanupIntervalMs: number;
   orphanMaxAgeMs: number;
@@ -89,7 +87,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     tempRoot: resolve(env.TEMP_ROOT ?? join(tmpdir(), 'pictochat-mvp')),
     sessionTtlMs: env.SESSION_TTL_MS,
     roomTokenTtlMs: env.ROOM_TOKEN_TTL_MS,
-    roomMaxAgeMs: env.ROOM_MAX_AGE_MS,
     roomEmptyTtlMs: env.ROOM_EMPTY_TTL_MS,
     cleanupIntervalMs: env.CLEANUP_INTERVAL_MS,
     orphanMaxAgeMs: env.ORPHAN_MAX_AGE_MS,

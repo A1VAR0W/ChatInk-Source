@@ -55,10 +55,11 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
 
   const firstMessage = 'Hola desde el primer navegador';
   await first.getByRole('textbox', { name: 'Mensaje' }).fill(firstMessage);
-  await expect(second.locator('.typing-indicator')).toHaveText('Ada está escribiendo…');
+  await expect(second.locator('.typing-indicator')).toContainText('Ada está escribiendo');
+  await expect(second.locator('.typing-dots')).toBeVisible();
   await first.getByRole('button', { name: 'Enviar' }).click();
   await expect(second.getByText(firstMessage)).toBeVisible();
-  await expect(second.locator('.typing-indicator')).toHaveText('');
+  await expect(second.locator('.typing-indicator')).toHaveCount(0);
 
   const incomingText = second.locator('.message').filter({ hasText: firstMessage }).locator('.message-swipe-target');
   await swipeToReply(incomingText);
@@ -98,6 +99,8 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await canvas.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 31, isPrimary: true, clientX: box.x + 90, clientY: box.y + 90, pressure: 0.5 });
   await canvas.dispatchEvent('pointermove', { pointerType: 'touch', pointerId: 31, isPrimary: true, clientX: box.x + 220, clientY: box.y + 130, pressure: 0.7 });
   await canvas.dispatchEvent('pointerup', { pointerType: 'touch', pointerId: 31, isPrimary: true, clientX: box.x + 220, clientY: box.y + 130, pressure: 0.7 });
+  await first.getByRole('button', { name: 'Cubo de pintura' }).click();
+  await canvas.click({ position: { x: 20, y: 20 } });
   expect(await first.evaluate(() => window.scrollY)).toBe(0);
   await first.setViewportSize({ width: 844, height: 390 });
   await expect(canvas).toBeVisible();
@@ -133,6 +136,10 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await expect(second.getByRole('button', { name: 'Cerrar sala' })).toHaveCount(0);
   await first.setViewportSize({ width: 390, height: 844 });
   await expect(first.getByRole('button', { name: 'Cerrar sala' })).toBeVisible();
+
+  await first.goBack();
+  await expect(first.getByRole('heading', { name: /Dónde quieres/ })).toBeVisible();
+  await expect(second.getByLabel('Ver 1 personas en la sala')).toBeVisible();
 
   await firstContext.close();
   await secondContext.close();

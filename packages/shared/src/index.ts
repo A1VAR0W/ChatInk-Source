@@ -76,11 +76,22 @@ export const pointSchema = z.object({
 });
 
 export const strokeSchema = z.object({
+  // `type` is optional to keep drawings already sent before the fill tool
+  // readable. New strokes are written with an explicit type.
+  type: z.literal('stroke').optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   width: z.number().finite().min(1).max(48),
   tool: z.enum(['pencil', 'eraser']),
   points: z.array(pointSchema).min(1).max(4000),
 });
+
+export const fillSchema = z.object({
+  type: z.literal('fill'),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  point: pointSchema,
+});
+
+export const drawingOperationSchema = z.union([strokeSchema, fillSchema]);
 
 export const drawingPayloadSchema = z.object({
   width: z.number().int().min(100).max(2400),
@@ -88,11 +99,15 @@ export const drawingPayloadSchema = z.object({
   // light/dark remain readable only for drawings already in a live room before
   // the white-canvas migration. New drawings use white or the optional mark.
   background: z.enum(['white', 'logo', 'light', 'dark']),
-  strokes: z.array(strokeSchema).min(1).max(250),
+  // The field name is retained for backwards compatibility with existing
+  // messages, although it now records strokes and bucket-fill operations.
+  strokes: z.array(drawingOperationSchema).min(1).max(250),
 });
 
 export type DrawingPayload = z.infer<typeof drawingPayloadSchema>;
 export type DrawingStroke = z.infer<typeof strokeSchema>;
+export type DrawingFill = z.infer<typeof fillSchema>;
+export type DrawingOperation = z.infer<typeof drawingOperationSchema>;
 
 export const textMessageInputSchema = z.object({
   clientId: z.uuid(),
@@ -116,6 +131,8 @@ export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
 export const typingStateSchema = z.object({ isTyping: z.boolean() });
 export type TypingStateInput = z.infer<typeof typingStateSchema>;
+export const drawingStateSchema = z.object({ isDrawing: z.boolean() });
+export type DrawingStateInput = z.infer<typeof drawingStateSchema>;
 
 export const closeRoomSchema = z.object({ reason: z.string().max(100).optional() });
 
@@ -134,7 +151,6 @@ export interface RoomSummary {
   participantCount: number;
   maxParticipants: number;
   createdAt: number;
-  expiresAt: number;
 }
 
 export interface RoomAccessResponse {
@@ -202,18 +218,25 @@ export interface TypingParticipant {
   alias: string;
 }
 
+export interface DrawingParticipant {
+  id: string;
+  alias: string;
+}
+
 export interface ServerToClientEvents {
   'room:state': (state: RoomState) => void;
   'room:participants': (participants: Participant[]) => void;
   'message:new': (message: RoomMessage) => void;
   'room:typing': (participants: TypingParticipant[]) => void;
-  'room:closed': (payload: { reason: 'creator' | 'expired' | 'empty' | 'shutdown' }) => void;
+  'room:drawing': (participants: DrawingParticipant[]) => void;
+  'room:closed': (payload: { reason: 'creator' | 'empty' | 'shutdown' }) => void;
   'server:error': (payload: { code: string; message: string; clientId?: string }) => void;
 }
 
 export interface ClientToServerEvents {
   'message:send': (message: SendMessageInput, acknowledge: (result: SocketAcknowledgement) => void) => void;
   'typing:set': (input: TypingStateInput) => void;
+  'drawing:set': (input: DrawingStateInput) => void;
   'room:close': (acknowledge: (result: SocketAcknowledgement) => void) => void;
 }
 

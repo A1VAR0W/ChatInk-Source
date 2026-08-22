@@ -30,6 +30,7 @@ export function ChatComposer({
   onFiles,
   onCancelReply,
   onTypingChange,
+  onDrawingActivityChange,
   onModeChange,
 }: {
   disabled: boolean;
@@ -40,6 +41,7 @@ export function ChatComposer({
   onFiles: (files: FileList, replyToId?: string) => void;
   onCancelReply: () => void;
   onTypingChange: (isTyping: boolean) => void;
+  onDrawingActivityChange: (isDrawing: boolean) => void;
   onModeChange: (mode: 'text' | 'drawing') => void;
 }) {
   const [text, setText] = useState('');
@@ -163,7 +165,7 @@ export function ChatComposer({
         </div>
         <div className="text-meta"><span>Enter para enviar · Mayús+Enter para nueva línea</span></div>
       </div>
-      <DrawingCanvas active={mode === 'drawing'} onSend={sendDrawing} disabled={disabled} onDirtyChange={handleDrawingDirty} />
+      <DrawingCanvas active={mode === 'drawing'} onSend={sendDrawing} disabled={disabled} onDirtyChange={handleDrawingDirty} onDrawingActivityChange={onDrawingActivityChange} />
     </section>
   );
 }

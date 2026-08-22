@@ -41,7 +41,6 @@ interface Room {
   passwordHash?: string;
   creatorSessionId: string;
   createdAt: number;
-  expiresAt: number;
   emptySince?: number;
   maxParticipants: number;
   sequence: number;
@@ -54,7 +53,7 @@ interface Room {
 export interface RoomServiceEvents {
   onMessage?: (roomId: string, message: RoomMessage) => void;
   onParticipants?: (roomId: string, participants: Participant[]) => void;
-  onDeleted?: (roomId: string, reason: 'creator' | 'expired' | 'empty' | 'shutdown') => void;
+  onDeleted?: (roomId: string, reason: 'creator' | 'empty' | 'shutdown') => void;
 }
 
 export interface CreateRoomInput {
@@ -86,7 +85,6 @@ export class RoomService {
   constructor(
     readonly config: Pick<
       AppConfig,
-      | 'roomMaxAgeMs'
       | 'roomEmptyTtlMs'
       | 'roomMaxParticipants'
       | 'roomsPerSession'
@@ -124,7 +122,6 @@ export class RoomService {
       ...(passwordHash === undefined ? {} : { passwordHash }),
       creatorSessionId: sessionId,
       createdAt: now,
-      expiresAt: now + this.config.roomMaxAgeMs,
       emptySince: now,
       maxParticipants,
       sequence: 0,
@@ -145,10 +142,6 @@ export class RoomService {
     password?: string,
   ): Promise<{ room: RoomSummary; role: 'creator' | 'member' }> {
     const room = this.byCode(code);
-    if (room.expiresAt <= this.clock()) {
-      await this.deleteRoom(room.id, 'expired');
-      throw new DomainError('ROOM_EXPIRED', 'La sala ha caducado', 410);
-    }
     const isCreator = room.creatorSessionId === sessionId;
     if (!isCreator && room.passwordHash !== undefined) {
       const valid = password !== undefined && await argon2.verify(room.passwordHash, password);
@@ -267,7 +260,7 @@ export class RoomService {
 
   publicRooms(): RoomSummary[] {
     return Array.from(this.#rooms.values())
-      .filter((room) => room.visibility === 'public' && room.expiresAt > this.clock())
+      .filter((room) => room.visibility === 'public')
       .sort((left, right) => right.createdAt - left.createdAt)
       .map((room) => this.summary(room));
   }
@@ -283,10 +276,9 @@ export class RoomService {
   }
 
   async sweep(now = this.clock()): Promise<void> {
-    const expired: Array<{ id: string; reason: 'expired' | 'empty' }> = [];
+    const expired: Array<{ id: string; reason: 'empty' }> = [];
     for (const room of this.#rooms.values()) {
-      if (room.expiresAt <= now) expired.push({ id: room.id, reason: 'expired' });
-      else if (room.emptySince !== undefined && now - room.emptySince >= this.config.roomEmptyTtlMs) {
+      if (room.emptySince !== undefined && now - room.emptySince >= this.config.roomEmptyTtlMs) {
         expired.push({ id: room.id, reason: 'empty' });
       }
     }
@@ -345,7 +337,6 @@ export class RoomService {
       participantCount: room.participants.size,
       maxParticipants: room.maxParticipants,
       createdAt: room.createdAt,
-      expiresAt: room.expiresAt,
     };
   }
 
@@ -353,7 +344,7 @@ export class RoomService {
     return Array.from(room.participants.values(), publicParticipant).sort((left, right) => left.joinedAt - right.joinedAt);
   }
 
-  private async deleteRoom(roomId: string, reason: 'creator' | 'expired' | 'empty' | 'shutdown'): Promise<void> {
+  private async deleteRoom(roomId: string, reason: 'creator' | 'empty' | 'shutdown'): Promise<void> {
     const room = this.#rooms.get(roomId);
     if (room === undefined) return;
     this.#rooms.delete(roomId);

@@ -25,7 +25,6 @@ const isolatedKeys = new Set([
   'TEMP_ROOT',
   'SESSION_TTL_MS',
   'ROOM_TOKEN_TTL_MS',
-  'ROOM_MAX_AGE_MS',
   'ROOM_EMPTY_TTL_MS',
   'CLEANUP_INTERVAL_MS',
   'ORPHAN_MAX_AGE_MS',
