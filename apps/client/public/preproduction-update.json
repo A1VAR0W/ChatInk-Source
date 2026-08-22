@@ -1,5 +1,31 @@
 {
   "schemaVersion": 1,
   "channel": "preproduction",
-  "release": null
+  "release": {
+    "tag": "v0.1.1",
+    "version": "0.1.1",
+    "versionCode": 1002,
+    "publishedAt": "2026-08-22T13:04:00.000Z",
+    "minimumSupportedVersion": "0.1.1",
+    "mandatory": true,
+    "notes": [
+      "Mensajes más amplios y naturales, como en WhatsApp.",
+      "Controles del lienzo optimizados para móvil.",
+      "Actualización obligatoria para las builds de preproducción antiguas."
+    ],
+    "releaseUrl": "https://github.com/A1VAR0W/Chat-Ink/releases/tag/v0.1.1",
+    "platforms": {
+      "android": {
+        "downloadUrl": "https://github.com/A1VAR0W/Chat-Ink/releases/download/v0.1.1/ChatInk-0.1.1.apk",
+        "sha256": "6aafdec5be41ecc1c25d1b0fe1a0c700b11a52a2af2501ae82be987d198cf96d",
+        "size": 4696173
+      },
+      "ios": {
+        "downloadUrl": "https://github.com/A1VAR0W/Chat-Ink/releases/download/v0.1.1/ChatInk-0.1.1.ipa",
+        "sha256": "affa11db5e8677121b6e96101bb6eb85342955f833535947f942256c132f0799",
+        "size": 2554150,
+        "sourceUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json"
+      }
+    }
+  }
 }
