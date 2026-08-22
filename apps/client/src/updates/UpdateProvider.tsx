@@ -1,7 +1,7 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
-import type { UpdateRelease } from '@pictochat/shared';
+import type { UpdateChannel, UpdateRelease } from '@pictochat/shared';
 import {
   UPDATE_CHECK_INTERVAL_MS,
   UpdateCheckError,
@@ -21,6 +21,7 @@ type UpdateContextValue = {
   installed: InstalledVersion | undefined;
   status: UpdateStatus;
   release: UpdateRelease | undefined;
+  channel: UpdateChannel | undefined;
   mandatory: boolean;
   dialogOpen: boolean;
   webUpdateAvailable: boolean;
@@ -108,6 +109,7 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
   const [installed, setInstalled] = useState<InstalledVersion>();
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [release, setRelease] = useState<UpdateRelease>();
+  const [channel, setChannel] = useState<UpdateChannel>();
   const [mandatory, setMandatory] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [webUpdateAvailable, setWebUpdateAvailable] = useState(false);
@@ -128,6 +130,7 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
       const decision = decideUpdate(manifest, current);
       if (decision.kind === 'available') {
         setRelease(decision.release);
+        setChannel(manifest.channel);
         setMandatory(decision.mandatory);
         const shouldOpen = manual || decision.mandatory || !isDismissed(decision.release.version);
         setDialogOpen(shouldOpen);
@@ -135,11 +138,13 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
         return;
       }
       setRelease(undefined);
+      setChannel(undefined);
       setMandatory(false);
       setDialogOpen(false);
       setStatus(decision.kind);
     } catch (error) {
       setRelease(undefined);
+      setChannel(undefined);
       setMandatory(false);
       setDialogOpen(false);
       setStatus(error instanceof UpdateCheckError && (error.code === 'network' || error.code === 'timeout') ? 'offline' : 'error');
@@ -219,6 +224,7 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
     installed,
     status,
     release,
+    channel,
     mandatory,
     dialogOpen,
     webUpdateAvailable,
@@ -226,7 +232,7 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
     dismissUpdate,
     closeDialog,
     applyWebUpdate,
-  }), [applyWebUpdate, checkForUpdates, closeDialog, dialogOpen, dismissUpdate, installed, mandatory, release, status, webUpdateAvailable]);
+  }), [applyWebUpdate, channel, checkForUpdates, closeDialog, dialogOpen, dismissUpdate, installed, mandatory, release, status, webUpdateAvailable]);
 
   return <UpdateContext.Provider value={value}>{children}</UpdateContext.Provider>;
 }

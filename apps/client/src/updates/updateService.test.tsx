@@ -62,6 +62,24 @@ function manifest(nextRelease: UpdateRelease | null): LatestUpdateManifest {
   return { schemaVersion: 1, channel: 'stable', release: nextRelease };
 }
 
+function preproductionRelease(overrides: Partial<UpdateRelease> = {}): UpdateRelease {
+  const version = overrides.version ?? '1.10.0';
+  const tag = overrides.tag ?? `v${version}`;
+  return {
+    ...release({
+      tag,
+      version,
+      versionCode: 1_010_001,
+      releaseUrl: `https://github.com/A1VAR0W/Chat-Ink/releases/tag/${tag}`,
+      platforms: {
+        android: { downloadUrl: `https://github.com/A1VAR0W/Chat-Ink/releases/download/${tag}/ChatInk-${version}.apk`, sha256: 'c'.repeat(64), size: 1_024 },
+        ios: { downloadUrl: `https://github.com/A1VAR0W/Chat-Ink/releases/download/${tag}/ChatInk-${version}.ipa`, sha256: 'd'.repeat(64), size: 2_048, sourceUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json' },
+      },
+    }),
+    ...overrides,
+  };
+}
+
 describe('update service', () => {
   it('compara SemVer numéricamente y rechaza formatos inválidos', () => {
     expect(compareVersions('1.10.0', '1.9.0')).toBeGreaterThan(0);
@@ -85,11 +103,22 @@ describe('update service', () => {
 
   it('acepta únicamente las URLs públicas exactas y las rutas de cada plataforma', () => {
     expect(isTrustedManifestUrl('https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json')).toBe(true);
+    expect(isTrustedManifestUrl('https://chat-ink.tail552c89.ts.net:8443/preproduction-update.json')).toBe(true);
     expect(isTrustedManifestUrl('https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json?cache=1')).toBe(false);
     expect(isTrustedManifestUrl('https://example.test/latest.json')).toBe(false);
     expect(updateUrlForPlatform(release(), 'android')).toContain('.apk');
     expect(updateUrlForPlatform(release(), 'ios')).toContain('sidestore-source.json');
     expect(updateUrlForPlatform(release(), 'web')).toBeUndefined();
+  });
+
+  it('acepta solo los artefactos privados de preproducción y obliga a versiones anteriores', () => {
+    const preproductionManifest: LatestUpdateManifest = {
+      schemaVersion: 1,
+      channel: 'preproduction',
+      release: preproductionRelease({ mandatory: true, minimumSupportedVersion: '1.10.0' }),
+    };
+    expect(decideUpdate(preproductionManifest, installed)).toMatchObject({ kind: 'available', mandatory: true });
+    expect(() => decideUpdate({ ...preproductionManifest, channel: 'stable' }, installed)).toThrow(UpdateCheckError);
   });
 
   it('trata JSON inválido, timeout y offline como fallos recuperables', async () => {

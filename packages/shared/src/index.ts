@@ -29,12 +29,13 @@ export const updateReleaseSchema = z.object({
 
 export const latestUpdateManifestSchema = z.object({
   schemaVersion: z.literal(1),
-  channel: z.literal('stable'),
+  channel: z.enum(['stable', 'preproduction']),
   release: updateReleaseSchema.nullable(),
 }).strict();
 
 export type UpdateRelease = z.infer<typeof updateReleaseSchema>;
 export type LatestUpdateManifest = z.infer<typeof latestUpdateManifestSchema>;
+export type UpdateChannel = LatestUpdateManifest['channel'];
 
 export const aliasSchema = z
   .string()

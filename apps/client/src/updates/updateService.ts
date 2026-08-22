@@ -1,8 +1,9 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { latestUpdateManifestSchema, stableVersionPattern, type LatestUpdateManifest, type UpdateRelease } from '@pictochat/shared';
+import { latestUpdateManifestSchema, stableVersionPattern, type LatestUpdateManifest, type UpdateChannel, type UpdateRelease } from '@pictochat/shared';
 
 export const DEFAULT_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json';
+export const PREPRODUCTION_UPDATE_MANIFEST_URL = 'https://chat-ink.tail552c89.ts.net:8443/preproduction-update.json';
 export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000;
 export const UPDATE_REQUEST_TIMEOUT_MS = 8_000;
 
@@ -56,11 +57,18 @@ function expectedUrl(value: string, host: string, path: string): boolean {
 }
 
 export function isTrustedManifestUrl(value: string): boolean {
-  return expectedUrl(value, 'raw.githubusercontent.com', '/A1VAR0W/ChatInk-Releases/main/latest.json');
+  return expectedUrl(value, 'raw.githubusercontent.com', '/A1VAR0W/ChatInk-Releases/main/latest.json')
+    || expectedUrl(value, 'chat-ink.tail552c89.ts.net', '/preproduction-update.json');
 }
 
-export function assertTrustedRelease(release: UpdateRelease): void {
-  const repositoryPath = '/A1VAR0W/ChatInk-Releases';
+function trustedChannelForManifestUrl(value: string): UpdateChannel | undefined {
+  if (expectedUrl(value, 'raw.githubusercontent.com', '/A1VAR0W/ChatInk-Releases/main/latest.json')) return 'stable';
+  if (expectedUrl(value, 'chat-ink.tail552c89.ts.net', '/preproduction-update.json')) return 'preproduction';
+  return undefined;
+}
+
+export function assertTrustedRelease(release: UpdateRelease, channel: UpdateChannel = 'stable'): void {
+  const repositoryPath = channel === 'preproduction' ? '/A1VAR0W/Chat-Ink' : '/A1VAR0W/ChatInk-Releases';
   const tag = encodeURIComponent(release.tag);
   const version = encodeURIComponent(release.version);
   if (release.tag !== `v${release.version}` || release.versionCode !== versionCode(release.version)) {
@@ -75,14 +83,17 @@ export function assertTrustedRelease(release: UpdateRelease): void {
   if (!expectedUrl(release.platforms.ios.downloadUrl, 'github.com', `${repositoryPath}/releases/download/${tag}/ChatInk-${version}.ipa`)) {
     throw new UpdateCheckError('untrusted-release');
   }
-  if (!expectedUrl(release.platforms.ios.sourceUrl, 'raw.githubusercontent.com', '/A1VAR0W/ChatInk-Releases/main/sidestore-source.json')) {
+  const trustedIosSource = channel === 'preproduction'
+    ? expectedUrl(release.platforms.ios.sourceUrl, 'chat-ink.tail552c89.ts.net', '/preproduction-sidestore-source.json')
+    : expectedUrl(release.platforms.ios.sourceUrl, 'raw.githubusercontent.com', '/A1VAR0W/ChatInk-Releases/main/sidestore-source.json');
+  if (!trustedIosSource) {
     throw new UpdateCheckError('untrusted-release');
   }
 }
 
 export function decideUpdate(manifest: LatestUpdateManifest, installed: InstalledVersion): UpdateDecision {
   if (manifest.release === null) return { kind: 'empty' };
-  assertTrustedRelease(manifest.release);
+  assertTrustedRelease(manifest.release, manifest.channel);
   if (compareVersions(manifest.release.version, installed.version) <= 0) return { kind: 'current' };
   const mandatory = manifest.release.mandatory
     || (manifest.release.minimumSupportedVersion !== null && compareVersions(installed.version, manifest.release.minimumSupportedVersion) < 0);
@@ -94,7 +105,8 @@ export async function fetchUpdateManifest(
   fetcher: typeof fetch = fetch,
   timeoutMs = UPDATE_REQUEST_TIMEOUT_MS,
 ): Promise<LatestUpdateManifest> {
-  if (!isTrustedManifestUrl(manifestUrl)) throw new UpdateCheckError('invalid-url');
+  const channel = trustedChannelForManifestUrl(manifestUrl);
+  if (channel === undefined) throw new UpdateCheckError('invalid-url');
   const controller = new AbortController();
   let rejectForTimeout: ((reason: UpdateCheckError) => void) | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -120,8 +132,8 @@ export async function fetchUpdateManifest(
       throw new UpdateCheckError('invalid-manifest');
     }
     const parsed = latestUpdateManifestSchema.safeParse(body);
-    if (!parsed.success) throw new UpdateCheckError('invalid-manifest');
-    if (parsed.data.release !== null) assertTrustedRelease(parsed.data.release);
+    if (!parsed.success || parsed.data.channel !== channel) throw new UpdateCheckError('invalid-manifest');
+    if (parsed.data.release !== null) assertTrustedRelease(parsed.data.release, parsed.data.channel);
     return parsed.data;
   } catch (error) {
     if (error instanceof UpdateCheckError) throw error;
@@ -165,6 +177,7 @@ export async function readInstalledVersion(): Promise<InstalledVersion> {
 }
 
 export function automaticChecksEnabled(): boolean {
+  if (import.meta.env.VITE_ENABLE_UPDATE_CHECKS === 'false') return false;
   return !import.meta.env.DEV || import.meta.env.VITE_ENABLE_UPDATE_CHECKS === 'true';
 }
 

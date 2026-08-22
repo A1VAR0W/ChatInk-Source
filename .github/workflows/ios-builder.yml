@@ -98,8 +98,8 @@ jobs:
           VITE_APP_VERSION: ${{ steps.version.outputs.version }}
           VITE_APP_VERSION_CODE: ${{ steps.version.outputs.version_code }}
           VITE_RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          VITE_ENABLE_UPDATE_CHECKS: ${{ (inputs.target_environment || 'preproduction') == 'preproduction' && 'false' || 'true' }}
-          VITE_UPDATE_MANIFEST_URL: ${{ (inputs.target_environment || 'preproduction') == 'preproduction' && '' || 'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json' }}
+          VITE_ENABLE_UPDATE_CHECKS: 'true'
+          VITE_UPDATE_MANIFEST_URL: ${{ (inputs.target_environment || 'preproduction') == 'preproduction' && 'https://chat-ink.tail552c89.ts.net:8443/preproduction-update.json' || 'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json' }}
 
       - name: Create and sync Capacitor iOS project
         working-directory: apps/client

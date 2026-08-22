@@ -44,6 +44,7 @@ describe('shared contracts', () => {
 
   it('validates the versioned empty update manifest contract', () => {
     expect(latestUpdateManifestSchema.safeParse({ schemaVersion: 1, channel: 'stable', release: null }).success).toBe(true);
+    expect(latestUpdateManifestSchema.safeParse({ schemaVersion: 1, channel: 'preproduction', release: null }).success).toBe(true);
     expect(latestUpdateManifestSchema.safeParse({ schemaVersion: 1, channel: 'stable' }).success).toBe(false);
   });
 });

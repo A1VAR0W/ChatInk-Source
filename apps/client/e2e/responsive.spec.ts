@@ -108,9 +108,18 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await expect(canvas).toBeVisible();
   await expect(first.getByRole('button', { name: 'Vista previa' })).toBeEnabled();
   await expect(first.getByRole('button', { name: 'Enviar ahora' })).toBeEnabled();
+  const drawingActions = await first.locator('.composer-footer').boundingBox();
+  const drawingTools = await first.locator('.drawing-tools').boundingBox();
+  if (drawingActions === null || drawingTools === null) throw new Error('Drawing controls not visible');
+  expect(drawingActions.y).toBeLessThan(drawingTools.y);
   await first.getByRole('button', { name: 'Elegir color y grosor' }).click();
   await expect(first.getByLabel('Color #e84393')).toBeVisible();
   await expect(first.getByRole('slider', { name: /Grosor/ })).toBeVisible();
+  const colorTrigger = await first.getByRole('button', { name: 'Elegir color y grosor' }).boundingBox();
+  const colorPanel = await first.locator('.color-control__panel').boundingBox();
+  if (colorTrigger === null || colorPanel === null) throw new Error('Color selector not visible');
+  expect(Math.abs((colorPanel.x + colorPanel.width / 2) - (colorTrigger.x + colorTrigger.width / 2))).toBeLessThanOrEqual(1);
+  expect(colorPanel.y).toBeGreaterThan(colorTrigger.y);
   await first.getByLabel('Color #e84393').click();
   await expect(first.getByLabel('Color #e84393')).toHaveCount(0);
   await first.getByRole('button', { name: 'Vista previa' }).click();

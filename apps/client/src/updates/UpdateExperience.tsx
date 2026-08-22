@@ -14,6 +14,7 @@ export function UpdateExperience() {
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [iosCopyState, setIosCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const release = updates.release;
+  const isPreproduction = updates.channel === 'preproduction';
   const useWebUpdate = updates.webUpdateAvailable && updates.installed?.platform === 'web';
   const open = updates.dialogOpen && ((updates.installed?.platform !== 'web' && release !== undefined) || useWebUpdate);
 
@@ -77,6 +78,10 @@ export function UpdateExperience() {
       return;
     }
     if (updates.installed?.platform === 'ios') {
+      if (isPreproduction) {
+        openExternal(release.releaseUrl);
+        return;
+      }
       void copyIosSource();
       return;
     }
@@ -88,7 +93,7 @@ export function UpdateExperience() {
     : updates.installed?.platform === 'android'
       ? 'Descargar APK'
       : updates.installed?.platform === 'ios'
-        ? 'Copiar fuente de SideStore'
+        ? isPreproduction ? 'Abrir release privada' : 'Copiar fuente de SideStore'
         : 'Ver información de la release';
 
   return (
@@ -123,7 +128,7 @@ export function UpdateExperience() {
                   </section>
                 )}
                 {updates.installed?.platform === 'android' && <p className="update-dialog__hint">Android puede pedirte autorización para instalar desde esta fuente. ChatInk nunca instala un APK en segundo plano.</p>}
-                {updates.installed?.platform === 'ios' && (
+                {updates.installed?.platform === 'ios' && !isPreproduction && (
                   <section className="update-dialog__ios" aria-label="Instrucciones de SideStore o AltStore">
                     <p>Abre SideStore o AltStore, añade esta fuente y deja que firme el IPA con tu cuenta Apple. No es una instalación directa ni de App Store.</p>
                     <label htmlFor="sidestore-source">URL de la fuente</label>
@@ -137,7 +142,7 @@ export function UpdateExperience() {
             {useWebUpdate && <p id="update-dialog-description" className="update-dialog__lead">La nueva versión de la aplicación web ya está descargada. Recarga para activarla.</p>}
             <div className="update-dialog__actions">
               {!updates.mandatory && <button type="button" className="button button--secondary" onClick={close}>Más tarde</button>}
-              {updates.installed?.platform === 'ios' && release !== undefined && <button type="button" className="button button--secondary" onClick={() => openExternal(release.releaseUrl)}>Ver release</button>}
+              {updates.installed?.platform === 'ios' && release !== undefined && !isPreproduction && <button type="button" className="button button--secondary" onClick={() => openExternal(release.releaseUrl)}>Ver release</button>}
               <button ref={primaryActionRef} type="button" className="button" onClick={primaryAction}>{primaryLabel}</button>
             </div>
           </div>
