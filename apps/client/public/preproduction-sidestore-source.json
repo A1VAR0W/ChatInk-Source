@@ -8,19 +8,19 @@
       "bundleIdentifier": "com.gmail.alvaroaguileracuesta",
       "developerName": "A1VAR0W",
       "subtitle": "Chat efímero de texto, dibujo y archivos.",
-      "localizedDescription": "Build privada de preproducción 0.1.1. Descarga el IPA desde la release privada si SideStore no tiene acceso a GitHub.",
-      "version": "0.1.1",
-      "versionDate": "2026-08-22T13:04:00.000Z",
-      "versionDescription": "Mensajes más cómodos en móvil, controles de lienzo corregidos y actualización obligatoria.",
-      "downloadURL": "https://github.com/A1VAR0W/Chat-Ink/releases/download/v0.1.1/ChatInk-0.1.1.ipa",
-      "size": 2554150,
+      "localizedDescription": "Build privada de preproducción 0.1.6. Incluye el identificador de paquete definitivo y la corrección del flujo de versiones.",
+      "version": "0.1.6",
+      "versionDate": "2026-08-22T15:20:00.000Z",
+      "versionDescription": "Candidato 0.1.6 de preproducción.",
+      "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.1.6.ipa",
+      "size": 2555341,
       "versions": [
         {
-          "version": "0.1.1",
-          "date": "2026-08-22T13:04:00.000Z",
-          "downloadURL": "https://github.com/A1VAR0W/Chat-Ink/releases/download/v0.1.1/ChatInk-0.1.1.ipa",
-          "localizedDescription": "Build privada de preproducción 0.1.1.",
-          "size": 2554150
+          "version": "0.1.6",
+          "date": "2026-08-22T15:20:00.000Z",
+          "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.1.6.ipa",
+          "localizedDescription": "Candidato 0.1.6 de preproducción.",
+          "size": 2555341
         }
       ]
     }
