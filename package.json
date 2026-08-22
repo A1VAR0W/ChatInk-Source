@@ -1,6 +1,6 @@
 {
   "name": "pictochat-mvp",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "type": "module",
   "description": "Chat efimero de texto, dibujo y archivos para web, Android e iOS.",
@@ -23,7 +23,7 @@
     "build:pwa": "npm run build -w @pictochat/shared && npm run build -w @pictochat/client",
     "pretest": "npm run build -w @pictochat/shared",
     "test": "npm run test -w @pictochat/shared && npm run test -w @pictochat/server && npm run test -w @pictochat/client",
-    "test:release": "node --test scripts/release/*.test.mjs",
+    "test:release": "node --test scripts/release/*.test.mjs scripts/native/*.test.mjs",
     "release:validate-version": "node scripts/release/version.mjs",
     "release:bump": "node scripts/release/bump.mjs",
     "release:validate-metadata": "node scripts/release/validate-public-metadata.mjs",

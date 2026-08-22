@@ -144,6 +144,9 @@ jobs:
           set -euo pipefail
           expected_id="$(node --input-type=module -e 'import { appForChannel } from "./scripts/release/release-config.mjs"; process.stdout.write(appForChannel(process.env.CHATINK_BUILD_CHANNEL).bundleIdentifier)')"
           grep -Fq "applicationId \"${expected_id}\"" apps/client/android/app/build.gradle
+          main_activity="apps/client/android/app/src/main/java/${expected_id//./\/}/MainActivity.java"
+          grep -Fq 'Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM' "$main_activity"
+          grep -Fq 'getPluginConfiguration("SystemBars")' "$main_activity"
 
       - name: Make Gradle wrapper executable
         working-directory: apps/client/android
@@ -294,7 +297,21 @@ jobs:
           grep -Fq "targetSdkVersion:'36'" "$badging"
           grep -E 'android:usesCleartextTraffic.*0x0' "$xmltree"
           grep -E 'android:allowBackup.*0x0' "$xmltree"
+          grep -E 'android:windowSoftInputMode.*0x10' "$xmltree"
           grep -Fq 'network_security_config' "$resources"
+
+          capacitor_config="$RUNNER_TEMP/capacitor-config.json"
+          unzip -p "$signed_apk" assets/capacitor.config.json > "$capacitor_config"
+          node --input-type=module - "$capacitor_config" <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const config = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          if (config.plugins?.SystemBars?.insetsHandling !== 'css') {
+            throw new Error('El APK no conserva el tratamiento edge-to-edge para Android 15+.');
+          }
+          if (config.plugins?.Keyboard?.resizeOnFullScreen !== false) {
+            throw new Error('El APK conserva el workaround fullscreen incompatible del teclado.');
+          }
+          NODE
 
           if grep -Eq "uses-permission: name='android.permission.(REQUEST_INSTALL_PACKAGES|QUERY_ALL_PACKAGES|SYSTEM_ALERT_WINDOW|BIND_ACCESSIBILITY_SERVICE)'" "$badging"; then
             echo 'El APK declara un permiso sensible no autorizado para esta aplicación.' >&2

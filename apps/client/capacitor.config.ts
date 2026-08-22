@@ -12,7 +12,12 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   plugins: {
-    Keyboard: { resizeOnFullScreen: true },
+    // Android 10/11 already resizes the activity through adjustResize. Enabling
+    // Capacitor's fullscreen workaround as well can reserve the IME height twice.
+    Keyboard: { resizeOnFullScreen: false },
+    // Android 15+ needs Capacitor's edge-to-edge insets. MainActivity changes
+    // this to `disable` only on Android 14 and older, where adjustResize is used.
+    SystemBars: { insetsHandling: 'css' },
   },
 };
 

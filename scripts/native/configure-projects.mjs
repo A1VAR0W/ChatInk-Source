@@ -4,6 +4,8 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { appForChannel } from '../release/release-config.mjs';
 import { versionCodeFromSegments } from '../release/version.mjs';
+import { configureAndroidMainActivity } from './android-main-activity.mjs';
+import { configureAndroidManifest } from './android-manifest.mjs';
 
 const rootDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const packageJsonPath = join(rootDirectory, 'package.json');
@@ -22,27 +24,11 @@ function replaceRequired(contents, expression, replacement, label) {
   return contents.replace(expression, replacement);
 }
 
-function setXmlAttribute(openingTag, attribute, value) {
-  const expression = new RegExp(`\\sandroid:${attribute}="[^"]*"`);
-  const replacement = ` android:${attribute}="${value}"`;
-  return expression.test(openingTag)
-    ? openingTag.replace(expression, replacement)
-    : openingTag.replace(/>$/, `${replacement}>`);
-}
-
 async function configureAndroidSecurity(androidDirectory) {
   const manifestPath = join(androidDirectory, 'app', 'src', 'main', 'AndroidManifest.xml');
   if (!(await pathExists(manifestPath))) return;
 
-  let manifest = await readFile(manifestPath, 'utf8');
-  manifest = manifest.replace(/<application\b[^>]*>/, (openingTag) => {
-    let secured = setXmlAttribute(openingTag, 'allowBackup', 'false');
-    secured = setXmlAttribute(secured, 'fullBackupContent', 'false');
-    secured = setXmlAttribute(secured, 'dataExtractionRules', '@xml/data_extraction_rules');
-    secured = setXmlAttribute(secured, 'usesCleartextTraffic', 'false');
-    secured = setXmlAttribute(secured, 'networkSecurityConfig', '@xml/network_security_config');
-    return secured;
-  });
+  const manifest = configureAndroidManifest(await readFile(manifestPath, 'utf8'));
   await writeFile(manifestPath, manifest, 'utf8');
 
   const xmlDirectory = join(androidDirectory, 'app', 'src', 'main', 'res', 'xml');
@@ -110,8 +96,7 @@ async function configureAndroid(version, buildNumber, app) {
     const mainActivity = await findMainActivity(javaRoot);
     if (mainActivity !== undefined) {
       const target = join(javaRoot, ...app.bundleIdentifier.split('.'), 'MainActivity.java');
-      let source = await readFile(mainActivity, 'utf8');
-      source = replaceRequired(source, /^package\s+[^;]+;/m, `package ${app.bundleIdentifier};`, 'package de MainActivity');
+      const source = configureAndroidMainActivity(await readFile(mainActivity, 'utf8'), app.bundleIdentifier);
 
       if (mainActivity === target) {
         await writeFile(mainActivity, source, 'utf8');
