@@ -66,6 +66,7 @@ jobs:
           esac
 
           if [[ "$mode" == "publish" ]]; then
+            git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
             release_commit="$(git rev-list -n1 "$release_tag")"
             git merge-base --is-ancestor "$release_commit" origin/main || {
               echo 'El commit etiquetado debe pertenecer a la historia de main.' >&2

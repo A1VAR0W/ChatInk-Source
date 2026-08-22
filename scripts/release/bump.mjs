@@ -37,6 +37,7 @@ async function main() {
   const npmResult = spawnSync(npmCommand, ['install', '--package-lock-only', '--ignore-scripts'], {
     cwd: repositoryRoot,
     stdio: 'inherit',
+    shell: process.platform === 'win32',
   });
   if (npmResult.status !== 0) throw new Error('No se pudo actualizar package-lock.json.');
   process.stdout.write(`Versión preparada: ${version}. No se ha creado ningún tag ni se ha hecho push.\n`);
