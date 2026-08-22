@@ -21,6 +21,26 @@ function renderComposer(overrides: Partial<ComponentProps<typeof ChatComposer>> 
 }
 
 describe('ChatComposer', () => {
+  it('mantiene un textarea de 50px, crece hasta 120px y vuelve a su altura inicial al enviar', () => {
+    const onText = vi.fn();
+    renderComposer({ onText });
+    const input = screen.getByLabelText('Mensaje');
+    if (!(input instanceof HTMLTextAreaElement)) throw new Error('El composer debe usar un textarea.');
+    Object.defineProperty(input, 'scrollHeight', {
+      configurable: true,
+      get: () => input.value.length === 0 ? 50 : input.value.length > 20 ? 164 : 96,
+    });
+
+    fireEvent.change(input, { target: { value: 'Línea uno\nLínea dos\nLínea tres\nLínea cuatro\nLínea cinco\nLínea seis' } });
+    expect(input.style.height).toBe('120px');
+    expect(input.style.overflowY).toBe('auto');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(input).toHaveValue('');
+    expect(input.style.height).toBe('50px');
+    expect(input.style.overflowY).toBe('hidden');
+  });
+
   it('sends text with Enter and keeps Shift+Enter for a new line', () => {
     const onText = vi.fn();
     renderComposer({ onText });
@@ -50,5 +70,25 @@ describe('ChatComposer', () => {
     fireEvent.compositionEnd(input);
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onText).toHaveBeenCalledWith('こんにちは', undefined);
+  });
+
+  it('keeps Enter available for a new line on touch devices', () => {
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn().mockReturnValue({ matches: true }),
+    });
+    const onText = vi.fn();
+    renderComposer({ onText });
+    const input = screen.getByLabelText('Mensaje');
+    fireEvent.change(input, { target: { value: 'Una línea' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onText).not.toHaveBeenCalled();
+    if (originalMatchMedia !== undefined) Object.defineProperty(window, 'matchMedia', originalMatchMedia);
+  });
+
+  it('does not reserve layout for the inactive drawing panel', () => {
+    renderComposer();
+    expect(document.querySelector('.drawing-composer')).toHaveAttribute('hidden');
   });
 });

@@ -11,6 +11,8 @@ import type { DrawingPayload, RoomMessage } from '@pictochat/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 
 const EMOJIS = ['👋', '✨', '😂', '❤️', '👍', '🎨', '🔥', '🤔'];
+const TEXTAREA_MIN_HEIGHT = 50;
+const TEXTAREA_MAX_HEIGHT = 120;
 
 function messageLabel(message: RoomMessage): string {
   if (message.kind === 'text') return message.text.length > 100 ? `${message.text.slice(0, 97)}…` : message.text;
@@ -79,8 +81,8 @@ export function ChatComposer({
     const textarea = textareaRef.current;
     if (mode !== 'text' || textarea === null) return;
     textarea.style.height = 'auto';
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 144)}px`;
-    textarea.style.overflowY = textarea.scrollHeight > 144 ? 'auto' : 'hidden';
+    textarea.style.height = `${Math.max(TEXTAREA_MIN_HEIGHT, Math.min(textarea.scrollHeight, TEXTAREA_MAX_HEIGHT))}px`;
+    textarea.style.overflowY = textarea.scrollHeight > TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
   }, [mode, text]);
 
   useEffect(() => {
@@ -161,7 +163,7 @@ export function ChatComposer({
           />
           <button type="button" className="icon-button" onClick={() => fileInput.current?.click()} disabled={disabled} aria-label="Adjuntar archivo">＋</button>
           <input ref={fileInput} className="sr-only" type="file" multiple onChange={chooseFiles} />
-          <button type="button" className="button send-button" onClick={submit} disabled={disabled || isComposing || text.trim().length === 0}>Enviar</button>
+          <button type="button" className="button send-button" onClick={submit} disabled={disabled || isComposing || text.trim().length === 0} aria-label="Enviar">Enviar</button>
         </div>
         <div className="text-meta"><span>Enter para enviar · Mayús+Enter para nueva línea</span></div>
       </div>

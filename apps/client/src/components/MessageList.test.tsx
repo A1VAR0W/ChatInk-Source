@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { DisplayMessage } from '../hooks/useRoomSocket';
 import { MessageList } from './MessageList';
@@ -20,6 +22,31 @@ function textMessage(overrides: Partial<TextDisplayMessage> = {}): TextDisplayMe
 }
 
 describe('MessageList', () => {
+  it('preserva el texto, la alineación y el contrato responsive de las burbujas', () => {
+    const incoming = textMessage({ text: 'I allow callmebot to send me messages' });
+    const own = textMessage({
+      id: '3cf96191-1d25-4eeb-9a1d-777e3f5d3ab9',
+      clientId: 'a09a9ddd-a3ec-4d7b-a2de-3c62a149a2d3',
+      sequence: 2,
+      createdAt: incoming.createdAt + 1,
+      sender: { id: 'lin', alias: 'Lin' },
+      text: 'Hola\nSin saltos insertados.',
+    });
+    const { container } = render(<MessageList messages={[incoming, own]} ownId="lin" roomToken="room-token" onReply={vi.fn()} />);
+
+    const content = Array.from(container.querySelectorAll('.message-text__content'));
+    expect(content.map((element) => element.textContent)).toEqual([incoming.text, own.text]);
+    expect(container.querySelector('.message:not(.message--own) .message-bubble')).not.toBeNull();
+    expect(container.querySelector('.message--own .message-bubble')).not.toBeNull();
+    expect(container.querySelectorAll('wbr')).toHaveLength(0);
+
+    const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    expect(styles).toMatch(/\.message-bubble\s*\{[^}]*width: fit-content;[^}]*max-width: min\(82%, 36rem\)/);
+    expect(styles).toMatch(/\.message-text__content\s*\{[^}]*overflow-wrap: break-word;[^}]*word-break: normal;[^}]*hyphens: none;[^}]*white-space: pre-wrap/);
+    expect(styles).not.toMatch(/\.message-text__content\s*\{[^}]*word-break: break-all/);
+    expect(styles).not.toMatch(/\.message-text__content\s*\{[^}]*overflow-wrap: anywhere/);
+  });
+
   it('agrupa mensajes consecutivos del mismo autor dentro de la ventana corta', () => {
     const first = textMessage();
     const second = textMessage({ id: '9a2e4c2b-938c-4fdd-9b3b-633af4f4c5b3', clientId: '6d6b3f0a-94fe-4f62-ab4d-0ad95cb4fa8a', sequence: 2, createdAt: first.createdAt + 60_000, text: 'Sigo aquí' });
