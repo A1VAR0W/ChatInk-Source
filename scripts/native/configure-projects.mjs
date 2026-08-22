@@ -22,6 +22,35 @@ function replaceRequired(contents, expression, replacement, label) {
   return contents.replace(expression, replacement);
 }
 
+function setXmlAttribute(openingTag, attribute, value) {
+  const expression = new RegExp(`\\sandroid:${attribute}="[^"]*"`);
+  const replacement = ` android:${attribute}="${value}"`;
+  return expression.test(openingTag)
+    ? openingTag.replace(expression, replacement)
+    : openingTag.replace(/>$/, `${replacement}>`);
+}
+
+async function configureAndroidSecurity(androidDirectory) {
+  const manifestPath = join(androidDirectory, 'app', 'src', 'main', 'AndroidManifest.xml');
+  if (!(await pathExists(manifestPath))) return;
+
+  let manifest = await readFile(manifestPath, 'utf8');
+  manifest = manifest.replace(/<application\b[^>]*>/, (openingTag) => {
+    let secured = setXmlAttribute(openingTag, 'allowBackup', 'false');
+    secured = setXmlAttribute(secured, 'fullBackupContent', 'false');
+    secured = setXmlAttribute(secured, 'dataExtractionRules', '@xml/data_extraction_rules');
+    secured = setXmlAttribute(secured, 'usesCleartextTraffic', 'false');
+    secured = setXmlAttribute(secured, 'networkSecurityConfig', '@xml/network_security_config');
+    return secured;
+  });
+  await writeFile(manifestPath, manifest, 'utf8');
+
+  const xmlDirectory = join(androidDirectory, 'app', 'src', 'main', 'res', 'xml');
+  await mkdir(xmlDirectory, { recursive: true });
+  await writeFile(join(xmlDirectory, 'network_security_config.xml'), `<?xml version="1.0" encoding="utf-8"?>\n<network-security-config>\n  <base-config cleartextTrafficPermitted="false" />\n</network-security-config>\n`, 'utf8');
+  await writeFile(join(xmlDirectory, 'data_extraction_rules.xml'), `<?xml version="1.0" encoding="utf-8"?>\n<data-extraction-rules>\n  <cloud-backup disableIfNoEncryptionCapabilities="true">\n    <exclude domain="root" path="." />\n  </cloud-backup>\n  <device-transfer>\n    <exclude domain="root" path="." />\n  </device-transfer>\n</data-extraction-rules>\n`, 'utf8');
+}
+
 function parseVersion(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
   if (match === null) throw new Error(`La versión de package.json no es SemVer estable: ${version}`);
@@ -64,6 +93,7 @@ async function configureAndroid(version, buildNumber, app) {
   gradle = replaceRequired(gradle, /versionCode\s+\d+/, `versionCode ${buildNumber}`, 'versionCode Android');
   gradle = replaceRequired(gradle, /versionName\s+"[^"]+"/, `versionName "${version}"`, 'versionName Android');
   await writeFile(gradlePath, gradle, 'utf8');
+  await configureAndroidSecurity(androidDirectory);
 
   const stringsPath = join(androidDirectory, 'app', 'src', 'main', 'res', 'values', 'strings.xml');
   if (await pathExists(stringsPath)) {
