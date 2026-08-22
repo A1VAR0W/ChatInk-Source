@@ -107,6 +107,12 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
   await first.setViewportSize({ width: 390, height: 844 });
   await expect(canvas).toBeVisible();
   await expect(first.getByRole('button', { name: 'Vista previa' })).toBeEnabled();
+  await expect(first.getByRole('button', { name: 'Enviar ahora' })).toBeEnabled();
+  await first.getByRole('button', { name: 'Elegir color y grosor' }).click();
+  await expect(first.getByLabel('Color #e84393')).toBeVisible();
+  await expect(first.getByRole('slider', { name: /Grosor/ })).toBeVisible();
+  await first.getByLabel('Color #e84393').click();
+  await expect(first.getByLabel('Color #e84393')).toHaveCount(0);
   await first.getByRole('button', { name: 'Vista previa' }).click();
   await first.getByRole('button', { name: 'Enviar dibujo' }).click();
   await expect(second.locator('.message-bubble--drawing canvas')).toHaveCount(1);

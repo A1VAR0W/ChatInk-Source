@@ -6,9 +6,11 @@ import { Avatar } from '../components/Avatar';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { ApiClientError, api } from '../services/api';
 import { useSession } from '../state/session';
+import { useMessageTextSize } from '../state/messageTextSize';
 
 export function LobbyPage() {
   const { session, clearSession, rememberRoom } = useSession();
+  const { messageTextSize, setMessageTextSize } = useMessageTextSize();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [publicRooms, setPublicRooms] = useState<RoomSummary[]>([]);
@@ -20,6 +22,7 @@ export function LobbyPage() {
   const [joinPassword, setJoinPassword] = useState('');
   const [error, setError] = useState<string>();
   const [loadingAction, setLoadingAction] = useState<'create' | 'join'>();
+  const [mobileAction, setMobileAction] = useState<'create' | 'join'>(() => searchParams.get('room') === null ? 'create' : 'join');
 
   const loadRooms = useCallback(async () => {
     try {
@@ -84,15 +87,34 @@ export function LobbyPage() {
       </header>
       <div className="lobby-content">
         <section className="lobby-intro"><div className="eyebrow">ELIGE TU PUERTA</div><h1>¿Dónde quieres <span>garabatear?</span></h1><p>Crea un espacio nuevo o entra con el código que te hayan compartido.</p></section>
+        <section className="message-size-setting" aria-label="Tamaño de letra de los mensajes">
+          <span>Letra de los mensajes</span>
+          <div className="segmented message-size-setting__options" role="group" aria-label="Tamaño de letra">
+            {([
+              ['small', 'Pequeña'],
+              ['medium', 'Mediana'],
+              ['large', 'Grande'],
+            ] as const).map(([size, label]) => <button key={size} type="button" className={messageTextSize === size ? 'active' : ''} aria-pressed={messageTextSize === size} onClick={() => setMessageTextSize(size)}>{label}</button>)}
+          </div>
+        </section>
         {error !== undefined && <div className="alert alert--error" role="alert"><span>{error}</span><button type="button" onClick={() => setError(undefined)} aria-label="Cerrar">×</button></div>}
-        <div className="lobby-grid">
+        <div className="lobby-mobile-switcher" role="tablist" aria-label="Acción principal">
+          <button type="button" role="tab" aria-selected={mobileAction === 'create'} className={mobileAction === 'create' ? 'active' : ''} onClick={() => setMobileAction('create')}>Crear sala</button>
+          <button type="button" role="tab" aria-selected={mobileAction === 'join'} className={mobileAction === 'join' ? 'active' : ''} onClick={() => setMobileAction('join')}>Entrar con código</button>
+        </div>
+        <div className={`lobby-grid lobby-grid--${mobileAction}`}>
           <form className="panel create-panel" onSubmit={(event) => void create(event)}>
             <div className="panel-icon panel-icon--purple" aria-hidden="true">✦</div>
             <div><h2>Crear una sala</h2><p>Tú decides quién entra y cuándo termina.</p></div>
             <label>Nombre de la sala<input value={roomName} onChange={(event) => setRoomName(event.target.value)} minLength={2} maxLength={48} required /></label>
-            <fieldset><legend>Visibilidad</legend><div className="segmented"><label><input type="radio" name="visibility" checked={visibility === 'public'} onChange={() => setVisibility('public')} />Pública</label><label><input type="radio" name="visibility" checked={visibility === 'private'} onChange={() => setVisibility('private')} />Privada</label></div></fieldset>
-            {visibility === 'private' && <label>Contraseña <span>(opcional)</span><input type="password" value={createPassword} onChange={(event) => setCreatePassword(event.target.value)} minLength={8} maxLength={128} placeholder="8 caracteres o más" /></label>}
-            <label>Máximo de participantes <span>{maxParticipants}</span><input type="range" min="2" max="24" value={maxParticipants} onChange={(event) => setMaxParticipants(Number(event.target.value))} /></label>
+            <details className="room-options">
+              <summary>Ajustes de la sala <span>Opcional</span></summary>
+              <div className="room-options__content">
+                <fieldset><legend>Visibilidad</legend><div className="segmented"><label><input type="radio" name="visibility" checked={visibility === 'public'} onChange={() => setVisibility('public')} />Pública</label><label><input type="radio" name="visibility" checked={visibility === 'private'} onChange={() => setVisibility('private')} />Privada</label></div></fieldset>
+                {visibility === 'private' && <label>Contraseña <span>(opcional)</span><input type="password" value={createPassword} onChange={(event) => setCreatePassword(event.target.value)} minLength={8} maxLength={128} placeholder="8 caracteres o más" /></label>}
+                <label>Máximo de participantes <span>{maxParticipants}</span><input type="range" min="2" max="24" value={maxParticipants} onChange={(event) => setMaxParticipants(Number(event.target.value))} /></label>
+              </div>
+            </details>
             <button className="button button--full" type="submit" disabled={loadingAction !== undefined || roomName.trim().length < 2}>{loadingAction === 'create' ? 'Creando…' : 'Crear sala'}</button>
           </form>
 

@@ -1,4 +1,5 @@
 import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import type { UpdateRelease } from '@pictochat/shared';
 import {
@@ -202,6 +203,14 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
 
   useEffect(() => observeServiceWorker((registration) => {
     registrationRef.current = registration;
+    if (!Capacitor.isNativePlatform()) {
+      const worker = registration.waiting;
+      if (worker === null || worker === undefined) return;
+      const reload = () => window.location.reload();
+      navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true });
+      worker.postMessage({ type: 'SKIP_WAITING' });
+      return;
+    }
     setWebUpdateAvailable(true);
     setDialogOpen(true);
   }), []);

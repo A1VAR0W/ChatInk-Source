@@ -8,14 +8,12 @@ import {
 } from 'react';
 import type { DrawingOperation, DrawingPayload, DrawingStroke } from '@pictochat/shared';
 import { DrawingPreview, paintDrawing } from './DrawingPreview';
-import { CanvasIcon, EraserIcon, FillIcon, InkMarkIcon, PencilIcon, RedoIcon, TrashIcon, UndoIcon } from './Icons';
+import { EraserIcon, FillIcon, PencilIcon, RedoIcon, TrashIcon, UndoIcon } from './Icons';
 
 const COLORS = ['#17162b', '#6c5ce7', '#0984e3', '#00a884', '#f39c12', '#e84393', '#d63031', '#ffffff'];
 const EMPTY: DrawingOperation[] = [];
 const MAX_POINTS_PER_STROKE = 4_000;
 const WHITE = '#ffffff';
-
-type ComposerBackground = Extract<DrawingPayload['background'], 'white' | 'logo'>;
 
 type CanvasPointEvent = Pick<PointerEvent, 'clientX' | 'clientY' | 'pressure'>;
 
@@ -42,16 +40,16 @@ export function DrawingCanvas({
   const [color, setColor] = useState(COLORS[0] ?? '#17162b');
   const [width, setWidth] = useState(5);
   const [tool, setTool] = useState<'pencil' | 'eraser' | 'fill'>('pencil');
-  const [background, setBackground] = useState<ComposerBackground>('white');
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 440 });
 
   const drawing = useCallback((nextStrokes: DrawingOperation[]): DrawingPayload => ({
     width: 800,
     height: 440,
-    background,
+    background: 'white',
     strokes: nextStrokes,
-  }), [background]);
+  }), []);
 
   const render = useCallback((committed = strokesRef.current, inProgress = activeStroke.current) => {
     const canvas = canvasRef.current;
@@ -179,6 +177,7 @@ export function DrawingCanvas({
     if (value === WHITE) return;
     setColor(value);
     setTool('pencil');
+    setColorPickerOpen(false);
   };
 
   return (
@@ -187,17 +186,17 @@ export function DrawingCanvas({
         <button type="button" className={tool === 'pencil' ? 'tool active' : 'tool'} onClick={() => setTool('pencil')} aria-pressed={tool === 'pencil'} aria-label="Lápiz" title="Lápiz"><PencilIcon /></button>
         <button type="button" className={tool === 'eraser' ? 'tool active' : 'tool'} onClick={() => setTool('eraser')} aria-pressed={tool === 'eraser'} aria-label="Goma" title="Goma"><EraserIcon /></button>
         <button type="button" className={tool === 'fill' ? 'tool active' : 'tool'} onClick={() => setTool('fill')} aria-pressed={tool === 'fill'} aria-label="Cubo de pintura" title="Cubo de pintura"><FillIcon /></button>
-        <div className="drawing-background" role="group" aria-label="Fondo del lienzo">
-          <button type="button" className={background === 'white' ? 'tool active' : 'tool'} onClick={() => setBackground('white')} aria-pressed={background === 'white'} aria-label="Fondo blanco" title="Fondo blanco"><CanvasIcon /></button>
-          <button type="button" className={background === 'logo' ? 'tool active' : 'tool'} onClick={() => setBackground('logo')} aria-pressed={background === 'logo'} aria-label="Fondo con icono ChatInk" title="Fondo con icono ChatInk"><InkMarkIcon /></button>
+        <div className={colorPickerOpen ? 'color-control color-control--open' : 'color-control'}>
+          <button type="button" className="color-control__trigger" aria-label="Elegir color y grosor" aria-expanded={colorPickerOpen} onClick={() => setColorPickerOpen((open) => !open)} title="Elegir color y grosor"><span className="color-control__swatch" style={{ background: color }} /><span>Color</span></button>
+          {colorPickerOpen && <div className="color-control__panel" role="group" aria-label="Selector de color y grosor">
+            <div className="color-picker" aria-label="Color">
+              {COLORS.map((value) => (
+                <button key={value} type="button" aria-label={value === WHITE ? 'Blanco no disponible sobre fondo blanco' : `Color ${value}`} title={value === WHITE ? 'El blanco no se ve sobre este fondo' : `Color ${value}`} className={color === value ? 'swatch active' : 'swatch'} style={{ background: value }} onClick={() => selectColor(value)} disabled={value === WHITE} />
+              ))}
+            </div>
+            <label className="width-control">Grosor <input type="range" min="1" max="28" value={width} onChange={(event) => setWidth(Number(event.target.value))} aria-valuetext={`${width} píxeles`} /></label>
+          </div>}
         </div>
-        <div className="color-picker" aria-label="Color">
-          {COLORS.map((value) => (
-            <button key={value} type="button" aria-label={value === WHITE ? 'Blanco no disponible sobre fondo blanco' : `Color ${value}`} title={value === WHITE ? 'El blanco no se ve sobre este fondo' : `Color ${value}`} className={color === value ? 'swatch active' : 'swatch'} style={{ background: value }} onClick={() => selectColor(value)} disabled={value === WHITE} />
-          ))}
-        </div>
-        <label className="width-control">Grosor <input type="range" min="1" max="28" value={width} onChange={(event) => setWidth(Number(event.target.value))} aria-valuetext={`${width} píxeles`} /></label>
-        <output className="width-value" aria-label={`Grosor actual: ${width} píxeles`}>{width}</output>
         <div className="drawing-actions">
           <button type="button" className="tool" onClick={undo} disabled={strokes.length === 0} aria-label="Deshacer" title="Deshacer"><UndoIcon /></button>
           <button type="button" className="tool" onClick={redo} disabled={redoStack.length === 0} aria-label="Rehacer" title="Rehacer"><RedoIcon /></button>
@@ -216,7 +215,10 @@ export function DrawingCanvas({
       />
       <div className="composer-footer">
         <span className="composer-hint">El dibujo se conserva si vuelves al texto. Limpiar se puede recuperar con Rehacer.</span>
-        <button type="button" className="button button--secondary" disabled={strokes.length === 0} onClick={() => setShowPreview(true)}>Vista previa</button>
+        <div className="drawing-submit-actions">
+          <button type="button" className="button button--secondary" disabled={strokes.length === 0} onClick={() => setShowPreview(true)}>Vista previa</button>
+          <button type="button" className="button" disabled={strokes.length === 0 || disabled} onClick={submit} aria-label="Enviar ahora">Enviar ahora</button>
+        </div>
       </div>
       {showPreview && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="preview-title">

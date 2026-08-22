@@ -154,7 +154,6 @@ function ActiveRoom({ roomId }: { roomId: string }) {
               <Popover.Popup className="participants-popover" aria-label="Personas en la sala">
                 <div className="participants-title"><div><Popover.Title>En la sala</Popover.Title><span>{realtime.participants.length}/{access.room.maxParticipants}</span></div><Popover.Close className="icon-button" aria-label="Cerrar participantes">×</Popover.Close></div>
                 <ul>{realtime.participants.map((participant) => <li key={participant.id}><Avatar alias={participant.alias} /><div><strong>{participant.id === session.sessionId ? `${participant.alias} (tú)` : participant.alias}</strong><small>{participant.isCreator ? 'Creador/a' : 'Participante'}</small>{drawingParticipantIds.has(participant.id) && <small className="participant-activity"><CanvasIcon />Dibujando</small>}</div><i className="online-dot" title="En línea" /></li>)}</ul>
-                <div className="expiry-note"><span aria-hidden="true">⌛</span><p><strong>Sala temporal</strong><br />Se eliminará cinco minutos después de que se vaya la última persona.</p></div>
               </Popover.Popup>
             </Popover.Positioner>
           </Popover.Portal>
