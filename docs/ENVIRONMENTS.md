@@ -44,11 +44,11 @@ El servidor rechaza los secretos conocidos de las plantillas cuando `NODE_ENV=pr
 Los workflows asocian automáticamente cada ejecución a uno de estos entornos:
 
 - `main` → GitHub Environment `production` → imagen `ghcr.io/a1var0w/pictochat:latest`.
-- `develop` y `codex/**` → GitHub Environment `development` para builds web/nativos.
-- `develop` → imagen desplegable de pruebas `ghcr.io/a1var0w/pictochat:development`.
+- `develop` → GitHub Environment `preproduction` para la validación y la imagen desplegable de PRE `ghcr.io/a1var0w/pictochat:preproduction`.
+- `codex/**` → GitHub Environment `development` para verificaciones de ramas de trabajo.
 - Todas las imágenes publicadas reciben además `sha-<commit>` para fijar una versión exacta.
 
-En **Settings → Environments**, crea `development` y `production`. En ambos define `PUBLIC_SERVER_URL` y `PUBLIC_APP_URL` con las URLs correspondientes. Son valores públicos incorporados al bundle; no guardes secretos ahí.
+En **Settings → Environments**, crea `development`, `preproduction` y `production`. En Preproducción y Producción define `PUBLIC_SERVER_URL` y `PUBLIC_APP_URL` con las URLs correspondientes. Son valores públicos incorporados al bundle; no guardes secretos ahí.
 
 Para `production`, configura además:
 
@@ -59,8 +59,8 @@ Para `production`, configura además:
 ## Promoción recomendada
 
 1. Trabaja en `codex/**` o una rama de funcionalidad y abre PR hacia `develop`.
-2. Valida el cliente contra las URLs de `development` y, si procede, la imagen `:development`.
-3. Abre PR de `develop` a `main`.
+2. Despliega `develop` en Preproducción, valida el cliente contra sus URLs y genera las builds móviles del mismo candidato.
+3. Tras aprobar explícitamente esa versión de PRE, abre PR de `develop` a `main` sin modificar de nuevo la versión.
 4. Tras aprobar y pasar CI, `main` publica `:latest`; el servidor de Producción la aplica con healthcheck y rollback.
 
 No se promueven archivos `.env`: se promueve código. Cada entorno conserva sus propias variables y secretos.

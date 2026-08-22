@@ -1,12 +1,17 @@
 export const APP = Object.freeze({
   name: 'ChatInk',
-  bundleIdentifier: 'io.github.a1var0w.chatink',
+  bundleIdentifier: 'com.gmail.alvaroaguileracuesta',
   developerName: 'A1VAR0W',
   subtitle: 'Chat efímero de texto, dibujo y archivos.',
   description:
     'Cliente oficial de ChatInk para salas temporales con texto, dibujos y archivos.',
   tintColor: '#6c5ce7',
 });
+
+export const LEGACY_BUNDLE_IDENTIFIERS = Object.freeze([
+  'io.github.a1var0w.chatink',
+  'com.doodledrop.app',
+]);
 
 export const PUBLIC_RELEASE_REPOSITORY = 'A1VAR0W/ChatInk-Releases';
 export const PUBLIC_RELEASE_BASE_URL = `https://github.com/${PUBLIC_RELEASE_REPOSITORY}`;

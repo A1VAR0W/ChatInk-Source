@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   APP,
+  LEGACY_BUNDLE_IDENTIFIERS,
   PUBLIC_ICON_URL,
   PUBLIC_SOURCE_URL,
   apkAssetName,
@@ -11,7 +12,7 @@ import {
   releaseAssetUrl,
   releaseUrl,
 } from './release-config.mjs';
-import { compareProductVersions, parseReleaseTag } from './version.mjs';
+import { compareProductVersions, isKnownReleaseVersionCode, parseReleaseTag } from './version.mjs';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -71,7 +72,7 @@ export async function validatePublicMetadata(directory) {
   assert(release && typeof release === 'object' && !Array.isArray(release), 'latest.json.release debe ser un objeto o null.');
   const version = parseReleaseTag(release.tag);
   assert(release.version === version.version, 'latest.json.release.version no coincide con el tag.');
-  assert(release.versionCode === version.versionCode, 'latest.json.release.versionCode no corresponde con la versión SemVer.');
+  assert(isKnownReleaseVersionCode(version, release.versionCode), 'latest.json.release.versionCode no corresponde con la versión SemVer.');
   assert(typeof release.publishedAt === 'string' && !Number.isNaN(Date.parse(release.publishedAt)), 'release.publishedAt no es válido.');
   assert(Array.isArray(release.notes) && release.notes.every((note) => typeof note === 'string'), 'release.notes debe ser un array de texto.');
   assert(release.minimumSupportedVersion === null || typeof release.minimumSupportedVersion === 'string', 'release.minimumSupportedVersion no es válido.');
@@ -95,8 +96,13 @@ export async function validatePublicMetadata(directory) {
   assert(Number.isSafeInteger(release.platforms.android.size) && release.platforms.android.size >= 0, 'platforms.android.size no es válido.');
   assert(Number.isSafeInteger(release.platforms.ios.size) && release.platforms.ios.size >= 0, 'platforms.ios.size no es válido.');
 
-  const app = source.apps.find((item) => item?.bundleIdentifier === APP.bundleIdentifier);
-  assert(app, 'La fuente SideStore no contiene ChatInk.');
+  const matchingApps = source.apps.filter((item) => item?.bundleIdentifier === APP.bundleIdentifier);
+  assert(matchingApps.length === 1, 'La fuente SideStore debe contener exactamente una aplicación ChatInk.');
+  assert(
+    !source.apps.some((item) => LEGACY_BUNDLE_IDENTIFIERS.includes(item?.bundleIdentifier)),
+    'La fuente SideStore no puede conservar identificadores de bundle heredados.',
+  );
+  const [app] = matchingApps;
   assert(app.name === APP.name && app.developerName === APP.developerName, 'Los metadatos de ChatInk no coinciden.');
   assert(app.localizedDescription === APP.description && app.iconURL === PUBLIC_ICON_URL, 'La descripción o el icono de ChatInk no coincide.');
   assert(app.downloadURL === expectedIpaUrl, 'El downloadURL compatible de SideStore no coincide.');

@@ -33,7 +33,7 @@ test('genera latest.json y una fuente SideStore con historial en orden inverso',
   assert.deepEqual(await validatePublicMetadata(directory), {
     state: 'published',
     version: '0.2.0',
-    versionCode: 2_001,
+    versionCode: 4_002,
   });
   const source = JSON.parse(await readFile(join(directory, 'sidestore-source.json'), 'utf8'));
   assert.deepEqual(source.apps[0].versions.map((entry) => entry.version), ['0.2.0', '0.1.0']);
@@ -86,6 +86,34 @@ test('migra el manifiesto público heredado al primer formato de release', async
   assert.deepEqual(await validatePublicMetadata(directory), {
     state: 'published',
     version: '0.1.1',
-    versionCode: 1002,
+    versionCode: 2_004,
   });
+});
+
+test('elimina la aplicación SideStore heredada y conserva una única ficha de ChatInk', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'chatink-release-sidestore-legacy-'));
+  await writeFile(join(directory, 'sidestore-source.json'), `${JSON.stringify({
+    ...EMPTY_SOURCE,
+    apps: [
+      { bundleIdentifier: 'com.gmail.alvaroaguileracuesta', versions: [] },
+      { bundleIdentifier: 'io.github.a1var0w.chatink', versions: [] },
+      { bundleIdentifier: 'com.doodledrop.app', versions: [] },
+    ],
+  })}\n`);
+  await writeFile(join(directory, 'latest.json'), '{"schemaVersion":1,"channel":"stable","release":null}\n');
+
+  await generatePublicMetadata({
+    outputDirectory: directory,
+    tag: 'v0.1.6',
+    publishedAt: '2026-08-22T12:00:00.000Z',
+    apkSha256: 'a'.repeat(64),
+    ipaSha256: 'b'.repeat(64),
+    apkSize: 10,
+    ipaSize: 20,
+  });
+
+  const source = JSON.parse(await readFile(join(directory, 'sidestore-source.json'), 'utf8'));
+  assert.equal(source.apps.length, 1);
+  assert.equal(source.apps[0].bundleIdentifier, 'com.gmail.alvaroaguileracuesta');
+  await assert.doesNotReject(validatePublicMetadata(directory));
 });

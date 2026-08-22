@@ -1,11 +1,11 @@
 {
   "name": "ChatInk Preproducción",
-  "identifier": "io.github.a1var0w.chatink.preproduction",
+  "identifier": "com.gmail.alvaroaguileracuesta.preproduction",
   "sourceURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json",
   "apps": [
     {
       "name": "ChatInk Preproducción",
-      "bundleIdentifier": "io.github.a1var0w.chatink",
+      "bundleIdentifier": "com.gmail.alvaroaguileracuesta",
       "developerName": "A1VAR0W",
       "subtitle": "Chat efímero de texto, dibujo y archivos.",
       "localizedDescription": "Build privada de preproducción 0.1.1. Descarga el IPA desde la release privada si SideStore no tiene acceso a GitHub.",

@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preproduction' }}
     permissions:
       contents: read
       packages: write
@@ -133,7 +133,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=development,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=preproduction,enable=${{ github.ref == 'refs/heads/develop' }}
             type=sha,format=long,prefix=sha-
 
       - name: Build and publish image

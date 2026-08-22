@@ -2,8 +2,11 @@ import { appendFile, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION_SEGMENT_LIMIT = 999;
 const MAX_ANDROID_VERSION_CODE = 2_100_000_000;
+const VERSION_SEGMENT_LIMIT = 999;
+const VERSION_CODE_LANE_SIZE = 2;
+const PREPRODUCTION_VERSION_CODE_LANE = 1;
+const PRODUCTION_VERSION_CODE_LANE = 2;
 const TAG_PATTERN = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -29,11 +32,37 @@ export function versionCodeFromSegments(major, minor, patch) {
     fail(`Los segmentos MINOR y PATCH deben estar entre 0 y ${VERSION_SEGMENT_LIMIT}.`);
   }
 
-  const code = major * 1_000_000 + minor * 1_000 + patch + 1;
+  const productPosition = major * 1_000_000 + minor * 1_000 + patch;
+  const code = productPosition * VERSION_CODE_LANE_SIZE + PRODUCTION_VERSION_CODE_LANE;
   if (code < 1 || code > MAX_ANDROID_VERSION_CODE) {
     fail(`El versionCode calculado (${code}) excede el límite Android de ${MAX_ANDROID_VERSION_CODE}.`);
   }
   return code;
+}
+
+export function legacyVersionCodeFromSegments(major, minor, patch) {
+  if (![major, minor, patch].every(Number.isInteger)) {
+    fail('Los segmentos de versión deben ser enteros.');
+  }
+  if (minor < 0 || minor > VERSION_SEGMENT_LIMIT || patch < 0 || patch > VERSION_SEGMENT_LIMIT) {
+    fail(`Los segmentos MINOR y PATCH deben estar entre 0 y ${VERSION_SEGMENT_LIMIT}.`);
+  }
+
+  const code = major * 1_000_000 + minor * 1_000 + patch + 1;
+  if (code < 1 || code > MAX_ANDROID_VERSION_CODE) {
+    fail(`El versionCode heredado calculado (${code}) excede el límite Android de ${MAX_ANDROID_VERSION_CODE}.`);
+  }
+  return code;
+}
+
+export function preproductionVersionCodeFromSegments(major, minor, patch) {
+  const productionCode = versionCodeFromSegments(major, minor, patch);
+  return productionCode - PRODUCTION_VERSION_CODE_LANE + PREPRODUCTION_VERSION_CODE_LANE;
+}
+
+export function isKnownReleaseVersionCode(version, versionCode) {
+  return versionCode === versionCodeFromSegments(version.major, version.minor, version.patch)
+    || versionCode === legacyVersionCodeFromSegments(version.major, version.minor, version.patch);
 }
 
 export function parseProductVersion(version) {
@@ -88,11 +117,11 @@ export function parseReleaseTag(tag) {
 
 export function developmentVersion(packageVersion, runNumber) {
   const stable = parseReleaseTag(`v${packageVersion}`);
-  const versionCode = parsePositiveInteger(String(runNumber), 'GITHUB_RUN_NUMBER', MAX_ANDROID_VERSION_CODE);
+  parsePositiveInteger(String(runNumber), 'GITHUB_RUN_NUMBER', MAX_ANDROID_VERSION_CODE);
   return Object.freeze({
-    tag: `v${stable.version}-dev.${versionCode}`,
-    version: `${stable.version}-dev.${versionCode}`,
-    versionCode,
+    tag: stable.tag,
+    version: stable.version,
+    versionCode: preproductionVersionCodeFromSegments(stable.major, stable.minor, stable.patch),
   });
 }
 

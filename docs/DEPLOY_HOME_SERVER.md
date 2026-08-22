@@ -4,12 +4,13 @@ Esta opción publica el PWA, la API y Socket.IO bajo un único dominio HTTPS. So
 
 ## Flujo de publicación
 
-1. Un cambio entra en `main`.
-2. GitHub Actions ejecuta tipos, lint, pruebas, build y smoke test.
-3. Solo si todo pasa, publica `ghcr.io/a1var0w/pictochat:latest` para `linux/amd64` y `linux/arm64`.
-4. El servidor consulta esa etiqueta cada cinco minutos.
-5. Si la imagen cambió, reemplaza `app`, comprueba el healthcheck y `https://DOMINIO/api/health`.
-6. Si falla, restaura la imagen anterior.
+1. Un cambio entra en `develop` y se valida primero en Preproducción.
+2. Tras la aprobación explícita del mismo candidato, se promociona a `main` sin cambiar la versión.
+3. GitHub Actions ejecuta tipos, lint, pruebas, build y smoke test.
+4. Solo si todo pasa, publica `ghcr.io/a1var0w/pictochat:latest` para `linux/amd64` y `linux/arm64`.
+5. El servidor consulta esa etiqueta cada cinco minutos.
+6. Si la imagen cambió, reemplaza `app`, comprueba el healthcheck y `https://DOMINIO/api/health`.
+7. Si falla, restaura la imagen anterior.
 
 Las salas son efímeras: cualquier despliegue reinicia el proceso y elimina las conversaciones activas. El secreto JWT y los certificados sí permanecen entre actualizaciones.
 

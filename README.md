@@ -8,15 +8,15 @@ No usa base de datos. Reiniciar el servidor elimina todas las salas y conversaci
 
 Desarrollo y Producción están aislados por configuración, contenedores, secretos y flujo de GitHub:
 
-| | Desarrollo | Producción |
-| --- | --- | --- |
-| Rama/entorno GitHub | `develop`, `codex/**` → `development` | `main` → `production` |
-| Configuración local | `.env.development` | `deploy/.env.production` |
-| Docker Compose | `docker-compose.yml`, proyecto `pictochat-development` | `deploy/compose.prod.yml`, proyecto `pictochat` |
-| Cliente | Vite con hot reload en `:5173` | PWA compilado servido por Node/Caddy |
-| Imagen GHCR | `:development` desde `develop` | `:latest` desde `main` |
+| | Desarrollo local | Preproducción | Producción |
+| --- | --- | --- | --- |
+| Rama/entorno GitHub | local y `codex/**` → `development` | `develop` → `preproduction` | `main` → `production` |
+| Configuración | `.env.development` | configuración aislada del servidor PRE | `deploy/.env.production` |
+| Docker Compose | `docker-compose.yml`, proyecto `pictochat-development` | `deploy/compose.preproduction.yml`, proyecto `chatink-preproduction` | `deploy/compose.prod.yml`, proyecto `pictochat` |
+| Cliente | Vite con hot reload en `:5173` | PWA compilado y builds móviles de prueba | PWA compilado servido por Node/Caddy |
+| Imagen GHCR | — | `:preproduction` desde `develop` | `:latest` desde `main` |
 
-Los archivos con valores reales están ignorados por Git. Solo se versionan las plantillas `*.example`; no reutilices el `TOKEN_SECRET` de un entorno en el otro. Consulta [la guía completa de entornos](docs/ENVIRONMENTS.md).
+Los archivos con valores reales están ignorados por Git. Solo se versionan las plantillas `*.example`; no reutilices el `TOKEN_SECRET` de un entorno en el otro. Todo candidato se prueba primero en PRE desde `develop`; solo el mismo commit aprobado se promociona a Producción. Consulta [la guía completa de entornos](docs/ENVIRONMENTS.md).
 
 ## Puesta en marcha en Windows con Docker
 
@@ -85,7 +85,7 @@ Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. `npm ru
 | `npm run cap:sync` | Build web y sincronización de plataformas existentes |
 | `npm run android` / `ios` | Sincroniza y abre el IDE nativo |
 
-Los directorios nativos son generados y están ignorados para evitar guardar accidentalmente firma o configuración local. El script `native:configure` alinea los proyectos generados con `ChatInk`, `io.github.a1var0w.chatink`, la versión de `package.json` y su `versionCode` determinista. No modifica certificados, keystores ni perfiles de aprovisionamiento.
+Los directorios nativos son generados y están ignorados para evitar guardar accidentalmente firma o configuración local. El script `native:configure` alinea los proyectos generados con `ChatInk`, `com.gmail.alvaroaguileracuesta`, la versión de `package.json` y su `versionCode` determinista. No modifica certificados, keystores ni perfiles de aprovisionamiento.
 
 ### Assets nativos reproducibles
 
@@ -147,7 +147,7 @@ Para descargarlo:
 2. Entra en **ios-builder** y selecciona la ejecución de tu commit.
 3. En **Artifacts**, descarga el artifact de iOS de esa ejecución y descomprime el ZIP descargado por GitHub.
 
-Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. SideStore puede volver a firmarlo con la cuenta de desarrollo del usuario; para TestFlight/App Store hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil compatible con `io.github.a1var0w.chatink` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
+Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. SideStore puede volver a firmarlo con la cuenta de desarrollo del usuario; para TestFlight/App Store hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil compatible con `com.gmail.alvaroaguileracuesta` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
 
 ## Obtener Android desde GitHub Actions
 
@@ -166,7 +166,7 @@ Una firma válida no da reputación automática a un APK descargado desde GitHub
 
 La vía recomendada para que las pruebas se instalen mediante un canal reconocido es una [pista de prueba interna de Google Play](https://support.google.com/googleplay/android-developer/answer/9845334?hl=es):
 
-1. Antes de la primera subida, confirma el identificador en `apps/client/capacitor.config.ts`. Actualmente es `io.github.a1var0w.chatink`; Google Play lo fija de forma permanente al subir el primer artefacto.
+1. Antes de la primera subida, confirma el identificador en `apps/client/capacitor.config.ts`. Actualmente es `com.gmail.alvaroaguileracuesta`; Google Play lo fija de forma permanente al subir el primer artefacto.
 2. Crea la aplicación en Play Console y acepta **Play App Signing**.
 3. En **Probar y lanzar → Pruebas → Prueba interna**, crea una versión y sube `ChatInk-android-play-release.aab` desde el artefacto `ChatInk-Android-Play-release`.
 4. Añade las cuentas de Google de los testers, publica la pista y comparte su enlace de participación.

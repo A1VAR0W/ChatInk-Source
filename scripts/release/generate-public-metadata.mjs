@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   APP,
+  LEGACY_BUNDLE_IDENTIFIERS,
   PUBLIC_ICON_URL,
   PUBLIC_SOURCE_URL,
   apkAssetName,
@@ -11,7 +12,7 @@ import {
   releaseAssetUrl,
   releaseUrl,
 } from './release-config.mjs';
-import { compareProductVersions, parseReleaseTag } from './version.mjs';
+import { compareProductVersions, legacyVersionCodeFromSegments, parseReleaseTag } from './version.mjs';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -39,6 +40,11 @@ function parseJson(text, filename) {
   } catch {
     throw new Error(`${filename} no contiene JSON válido.`);
   }
+}
+
+function isChatInkApp(entry) {
+  return entry?.bundleIdentifier === APP.bundleIdentifier
+    || LEGACY_BUNDLE_IDENTIFIERS.includes(entry?.bundleIdentifier);
 }
 
 function publicReadme(version) {
@@ -100,7 +106,7 @@ async function readExistingLatest(path) {
   }
 
   const version = parseReleaseTag(`v${requireString(latest.version, 'latest.json.version')}`);
-  assert(latest.versionCode === version.versionCode, 'latest.json.versionCode no corresponde con la versión heredada.');
+  assert(latest.versionCode === legacyVersionCodeFromSegments(version.major, version.minor, version.patch), 'latest.json.versionCode no corresponde con la versión heredada.');
   return {
     schemaVersion: 1,
     channel: 'stable',
@@ -188,7 +194,7 @@ export async function generatePublicMetadata(options) {
     name: 'ChatInk Official Releases',
     identifier: 'com.a1var0w.chatink.releases',
     sourceURL: PUBLIC_SOURCE_URL,
-    apps: [app, ...existingSource.apps.filter((item) => item?.bundleIdentifier !== APP.bundleIdentifier)],
+    apps: [app, ...existingSource.apps.filter((item) => !isChatInkApp(item))],
   };
 
   const release = {
