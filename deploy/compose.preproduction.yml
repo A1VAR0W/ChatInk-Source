@@ -20,7 +20,7 @@ services:
       - "127.0.0.1:3002:3001"
     volumes:
       - type: bind
-        source: ${CHATINK_PREPRODUCTION_ARTIFACTS_DIR:?CHATINK_PREPRODUCTION_ARTIFACTS_DIR es obligatorio}
+        source: ${CHATINK_PREPRODUCTION_ARTIFACTS_DIR:-../release-artifacts}
         target: /app/apps/client/dist/preproduction-builds
         read_only: true
     environment:
