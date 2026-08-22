@@ -94,9 +94,22 @@ async function readExistingLatest(path) {
   const latest = parseJson(await readFile(path, 'utf8'), 'latest.json');
   assert(latest && typeof latest === 'object', 'latest.json debe ser un objeto.');
   assert(latest.schemaVersion === 1 && latest.channel === 'stable', 'latest.json usa un esquema o canal no soportado.');
-  assert(Object.hasOwn(latest, 'release'), 'latest.json debe declarar release.');
-  assert(latest.release === null || (typeof latest.release === 'object' && !Array.isArray(latest.release)), 'latest.json.release no es válido.');
-  return latest;
+  if (Object.hasOwn(latest, 'release')) {
+    assert(latest.release === null || (typeof latest.release === 'object' && !Array.isArray(latest.release)), 'latest.json.release no es válido.');
+    return latest;
+  }
+
+  const version = parseReleaseTag(`v${requireString(latest.version, 'latest.json.version')}`);
+  assert(latest.versionCode === version.versionCode, 'latest.json.versionCode no corresponde con la versión heredada.');
+  return {
+    schemaVersion: 1,
+    channel: 'stable',
+    release: {
+      tag: version.tag,
+      version: version.version,
+    },
+    legacy: true,
+  };
 }
 
 export async function generatePublicMetadata(options) {
@@ -109,6 +122,7 @@ export async function generatePublicMetadata(options) {
   const latestPath = resolve(outputDirectory, 'latest.json');
   const [existingSource, existingLatest] = await Promise.all([readExistingSource(sourcePath), readExistingLatest(latestPath)]);
   const existingRelease = existingLatest.release;
+  assert(mode === 'publish' || !existingLatest.legacy, 'repair no admite el manifiesto público heredado.');
   if (existingRelease !== null) {
     const existingVersion = parseReleaseTag(requireString(existingRelease.tag, 'latest.json.release.tag'));
     assert(existingRelease.version === existingVersion.version, 'latest.json.release.version no coincide con su tag.');

@@ -82,7 +82,7 @@ jobs:
             curl --fail --silent --show-error \
               'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json' \
               --output "$latest_manifest"
-            published_version="$(node --input-type=module -e 'import { readFile } from "node:fs/promises"; const manifest = JSON.parse(await readFile(process.argv[1], "utf8")); if (manifest?.schemaVersion !== 1 || manifest?.channel !== "stable" || !Object.hasOwn(manifest, "release")) process.exit(1); if (manifest.release === null) process.exit(0); if (typeof manifest.release?.version !== "string") process.exit(1); process.stdout.write(manifest.release.version);' "$latest_manifest")"
+            published_version="$(node --input-type=module -e 'import { readFile } from "node:fs/promises"; const manifest = JSON.parse(await readFile(process.argv[1], "utf8")); if (manifest?.schemaVersion !== 1 || manifest?.channel !== "stable") process.exit(1); const version = Object.hasOwn(manifest, "release") ? (manifest.release === null ? null : manifest.release?.version) : manifest.version; if (version === null) process.exit(0); if (typeof version !== "string") process.exit(1); process.stdout.write(version);' "$latest_manifest")"
             if [[ -n "$published_version" ]]; then
               node scripts/release/version.mjs --tag "$release_tag" --published-version "$published_version" --github-output "$GITHUB_OUTPUT"
             else

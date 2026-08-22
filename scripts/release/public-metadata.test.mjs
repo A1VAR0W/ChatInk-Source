@@ -67,3 +67,25 @@ test('repair conserva la fecha y rechaza republicaciones o downgrades', async ()
   await assert.rejects(generatePublicMetadata({ ...common, tag: 'v0.2.0' }));
   await assert.rejects(generatePublicMetadata({ ...common, tag: 'v0.1.0' }));
 });
+
+test('migra el manifiesto público heredado al primer formato de release', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'chatink-release-legacy-'));
+  await writeFile(join(directory, 'sidestore-source.json'), `${JSON.stringify(EMPTY_SOURCE)}\n`);
+  await writeFile(join(directory, 'latest.json'), '{"schemaVersion":1,"channel":"stable","version":"0.1.0","versionCode":1001}\n');
+
+  await generatePublicMetadata({
+    outputDirectory: directory,
+    tag: 'v0.1.1',
+    publishedAt: '2026-08-22T12:00:00.000Z',
+    apkSha256: 'a'.repeat(64),
+    ipaSha256: 'b'.repeat(64),
+    apkSize: 10,
+    ipaSize: 20,
+  });
+
+  assert.deepEqual(await validatePublicMetadata(directory), {
+    state: 'published',
+    version: '0.1.1',
+    versionCode: 1002,
+  });
+});
