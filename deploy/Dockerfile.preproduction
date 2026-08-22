@@ -7,17 +7,11 @@ COPY apps/server/package.json apps/server/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci
 
-FROM dependencies AS development
-ENV NODE_ENV=development \
-    HOST=0.0.0.0 \
-    PORT=3001 \
-    SERVE_CLIENT=false \
-    TEMP_ROOT=/tmp/pictochat-development
-COPY . .
-EXPOSE 3001 5173
-CMD ["npm", "run", "dev"]
-
 FROM dependencies AS builder
+ARG VITE_SERVER_URL
+ARG VITE_PUBLIC_APP_URL
+ENV VITE_SERVER_URL=${VITE_SERVER_URL} \
+    VITE_PUBLIC_APP_URL=${VITE_PUBLIC_APP_URL}
 COPY . .
 RUN npm run build
 RUN npm prune --omit=dev
@@ -25,14 +19,14 @@ RUN npm prune --omit=dev
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 LABEL org.opencontainers.image.source="https://github.com/A1VAR0W/Chat-Ink" \
-      org.opencontainers.image.title="ChatInk" \
-      org.opencontainers.image.description="Chat efimero de texto, dibujos y archivos"
+      org.opencontainers.image.title="ChatInk preproduction"
+
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3001 \
     SERVE_CLIENT=true \
     CLIENT_DIST=apps/client/dist \
-    TEMP_ROOT=/tmp/pictochat
+    TEMP_ROOT=/tmp/chatink-preproduction
 
 RUN useradd --create-home --uid 10001 appuser
 COPY --from=builder --chown=appuser:appuser /app/package.json /app/package-lock.json ./

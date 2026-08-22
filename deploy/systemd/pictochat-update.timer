@@ -1,5 +1,5 @@
 [Unit]
-Description=Comprobar actualizaciones de Chat-Ink cada cinco minutos
+Description=Comprobar actualizaciones de ChatInk cada cinco minutos
 
 [Timer]
 OnBootSec=2min

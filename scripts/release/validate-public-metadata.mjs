@@ -11,7 +11,7 @@ import {
   releaseAssetUrl,
   releaseUrl,
 } from './release-config.mjs';
-import { parseReleaseTag } from './version.mjs';
+import { compareProductVersions, parseReleaseTag } from './version.mjs';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -55,6 +55,7 @@ export async function validatePublicMetadata(directory) {
 
   assert(latest && typeof latest === 'object', 'latest.json debe ser un objeto.');
   assert(latest.schemaVersion === 1 && latest.channel === 'stable', 'latest.json usa un esquema o canal no soportado.');
+  assert(Object.hasOwn(latest, 'release'), 'latest.json debe declarar release.');
   assert(source && typeof source === 'object', 'sidestore-source.json debe ser un objeto.');
   assert(source.name === 'ChatInk Official Releases', 'El nombre de la fuente SideStore no coincide.');
   assert(source.identifier === 'com.a1var0w.chatink.releases', 'El identificador de la fuente SideStore no coincide.');
@@ -66,25 +67,33 @@ export async function validatePublicMetadata(directory) {
     return { state: 'empty' };
   }
 
-  const version = parseReleaseTag(`v${latest.version}`);
-  assert(latest.versionCode === version.versionCode, 'latest.json.versionCode no corresponde con la versión SemVer.');
-  assert(typeof latest.publishedAt === 'string' && !Number.isNaN(Date.parse(latest.publishedAt)), 'publishedAt no es válido.');
-  assert(Array.isArray(latest.notes), 'latest.json.notes debe ser un array.');
-  assert(latest.minimumSupportedVersion === null || typeof latest.minimumSupportedVersion === 'string', 'minimumSupportedVersion no es válido.');
-  assert(typeof latest.mandatory === 'boolean', 'mandatory debe ser booleano.');
+  const release = latest.release;
+  assert(release && typeof release === 'object' && !Array.isArray(release), 'latest.json.release debe ser un objeto o null.');
+  const version = parseReleaseTag(release.tag);
+  assert(release.version === version.version, 'latest.json.release.version no coincide con el tag.');
+  assert(release.versionCode === version.versionCode, 'latest.json.release.versionCode no corresponde con la versión SemVer.');
+  assert(typeof release.publishedAt === 'string' && !Number.isNaN(Date.parse(release.publishedAt)), 'release.publishedAt no es válido.');
+  assert(Array.isArray(release.notes) && release.notes.every((note) => typeof note === 'string'), 'release.notes debe ser un array de texto.');
+  assert(release.minimumSupportedVersion === null || typeof release.minimumSupportedVersion === 'string', 'release.minimumSupportedVersion no es válido.');
+  if (release.minimumSupportedVersion !== null) parseReleaseTag(`v${release.minimumSupportedVersion}`);
+  assert(typeof release.mandatory === 'boolean', 'release.mandatory debe ser booleano.');
+  assert(typeof release.releaseUrl === 'string', 'release.releaseUrl no es válido.');
+  assert(release.platforms && typeof release.platforms === 'object', 'release.platforms no es válido.');
 
   const expectedApkUrl = releaseAssetUrl(version.version, apkAssetName(version.version));
   const expectedIpaUrl = releaseAssetUrl(version.version, ipaAssetName(version.version));
-  assert(latest.android?.downloadUrl === expectedApkUrl, 'La URL Android no apunta al asset permanente esperado.');
-  assert(latest.ios?.downloadUrl === expectedIpaUrl, 'La URL iOS no apunta al asset permanente esperado.');
-  assert(latest.releaseUrl === releaseUrl(version.version), 'releaseUrl no apunta a la release esperada.');
-  assertHttpsUrl(latest.android.downloadUrl, 'android.downloadUrl');
-  assertHttpsUrl(latest.ios.downloadUrl, 'ios.downloadUrl');
-  assertHttpsUrl(latest.releaseUrl, 'releaseUrl');
-  assertSha256(latest.android.sha256, 'android.sha256');
-  assertSha256(latest.ios.sha256, 'ios.sha256');
-  assert(Number.isSafeInteger(latest.android.size) && latest.android.size >= 0, 'android.size no es válido.');
-  assert(Number.isSafeInteger(latest.ios.size) && latest.ios.size >= 0, 'ios.size no es válido.');
+  assert(release.platforms.android?.downloadUrl === expectedApkUrl, 'La URL Android no apunta al asset permanente esperado.');
+  assert(release.platforms.ios?.downloadUrl === expectedIpaUrl, 'La URL iOS no apunta al asset permanente esperado.');
+  assert(release.releaseUrl === releaseUrl(version.version), 'releaseUrl no apunta a la release esperada.');
+  assert(release.platforms.ios.sourceUrl === PUBLIC_SOURCE_URL, 'ios.sourceUrl no coincide con la fuente SideStore pública.');
+  assertHttpsUrl(release.platforms.android.downloadUrl, 'platforms.android.downloadUrl');
+  assertHttpsUrl(release.platforms.ios.downloadUrl, 'platforms.ios.downloadUrl');
+  assertHttpsUrl(release.platforms.ios.sourceUrl, 'platforms.ios.sourceUrl');
+  assertHttpsUrl(release.releaseUrl, 'releaseUrl');
+  assertSha256(release.platforms.android.sha256, 'platforms.android.sha256');
+  assertSha256(release.platforms.ios.sha256, 'platforms.ios.sha256');
+  assert(Number.isSafeInteger(release.platforms.android.size) && release.platforms.android.size >= 0, 'platforms.android.size no es válido.');
+  assert(Number.isSafeInteger(release.platforms.ios.size) && release.platforms.ios.size >= 0, 'platforms.ios.size no es válido.');
 
   const app = source.apps.find((item) => item?.bundleIdentifier === APP.bundleIdentifier);
   assert(app, 'La fuente SideStore no contiene ChatInk.');
@@ -94,13 +103,19 @@ export async function validatePublicMetadata(directory) {
   assert(Array.isArray(app.versions) && app.versions.length > 0, 'Falta el historial de versiones de SideStore.');
   assertVersionEntry(app.versions[0], version.version, 'versions[0]');
   assert(app.versions[0].downloadURL === expectedIpaUrl, 'La versión SideStore no apunta al IPA correcto.');
-  assert(app.version === version.version && app.versionDate === latest.publishedAt, 'La versión superior de SideStore no coincide.');
-  assert(app.size === latest.ios.size, 'El tamaño del IPA de SideStore no coincide.');
+  assert(app.version === version.version && app.versionDate === release.publishedAt, 'La versión superior de SideStore no coincide.');
+  assert(app.size === release.platforms.ios.size, 'El tamaño del IPA de SideStore no coincide.');
 
   const versionNames = new Set();
   for (const [index, entry] of app.versions.entries()) {
     assert(typeof entry.version === 'string' && !versionNames.has(entry.version), `versions[${index}] está repetida o no tiene versión.`);
+    parseReleaseTag(`v${entry.version}`);
+    assertVersionEntry(entry, entry.version, `versions[${index}]`);
     versionNames.add(entry.version);
+  }
+
+  for (let index = 1; index < app.versions.length; index += 1) {
+    assert(compareProductVersions(app.versions[index - 1].version, app.versions[index].version) > 0, 'El historial SideStore debe estar en orden descendente sin downgrades.');
   }
 
   return { state: 'published', version: version.version, versionCode: version.versionCode };

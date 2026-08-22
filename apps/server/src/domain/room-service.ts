@@ -3,6 +3,7 @@ import argon2 from 'argon2';
 import type {
   FilePayload,
   Participant,
+  ReplySnapshot,
   RoomMessage,
   RoomState,
   RoomSummary,
@@ -40,7 +41,6 @@ interface Room {
   passwordHash?: string;
   creatorSessionId: string;
   createdAt: number;
-  expiresAt: number;
   emptySince?: number;
   maxParticipants: number;
   sequence: number;
@@ -53,7 +53,7 @@ interface Room {
 export interface RoomServiceEvents {
   onMessage?: (roomId: string, message: RoomMessage) => void;
   onParticipants?: (roomId: string, participants: Participant[]) => void;
-  onDeleted?: (roomId: string, reason: 'creator' | 'expired' | 'empty' | 'shutdown') => void;
+  onDeleted?: (roomId: string, reason: 'creator' | 'empty' | 'shutdown') => void;
 }
 
 export interface CreateRoomInput {
@@ -85,12 +85,10 @@ export class RoomService {
   constructor(
     readonly config: Pick<
       AppConfig,
-      | 'roomMaxAgeMs'
       | 'roomEmptyTtlMs'
       | 'roomMaxParticipants'
       | 'roomsPerSession'
       | 'maxMessagesPerRoom'
-      | 'maxMessageChars'
       | 'maxFilesPerRoom'
     >,
     readonly storage: TempStorage,
@@ -124,7 +122,6 @@ export class RoomService {
       ...(passwordHash === undefined ? {} : { passwordHash }),
       creatorSessionId: sessionId,
       createdAt: now,
-      expiresAt: now + this.config.roomMaxAgeMs,
       emptySince: now,
       maxParticipants,
       sequence: 0,
@@ -145,10 +142,6 @@ export class RoomService {
     password?: string,
   ): Promise<{ room: RoomSummary; role: 'creator' | 'member' }> {
     const room = this.byCode(code);
-    if (room.expiresAt <= this.clock()) {
-      await this.deleteRoom(room.id, 'expired');
-      throw new DomainError('ROOM_EXPIRED', 'La sala ha caducado', 410);
-    }
     const isCreator = room.creatorSessionId === sessionId;
     if (!isCreator && room.passwordHash !== undefined) {
       const valid = password !== undefined && await argon2.verify(room.passwordHash, password);
@@ -200,11 +193,9 @@ export class RoomService {
   postMessage(roomId: string, sessionId: string, alias: string, input: SendMessageInput): RoomMessage {
     const room = this.byId(roomId);
     if (!room.participants.has(sessionId)) throw new DomainError('NOT_IN_ROOM', 'Ya no formas parte de la sala', 403);
-    if (input.kind === 'text' && input.text.length > this.config.maxMessageChars) {
-      throw new DomainError('MESSAGE_TOO_LONG', 'El mensaje supera el limite permitido', 400);
-    }
     const existing = room.messageByClientId.get(input.clientId);
     if (existing !== undefined) return existing;
+    const reply = input.replyToId === undefined ? undefined : this.replySnapshot(room, input.replyToId);
     const base = {
       id: randomUUID(),
       clientId: input.clientId,
@@ -212,6 +203,7 @@ export class RoomService {
       sequence: ++room.sequence,
       createdAt: this.clock(),
       sender: { id: sessionId, alias },
+      ...(reply === undefined ? {} : { reply }),
     };
     const message: RoomMessage = input.kind === 'text'
       ? { ...base, kind: 'text', text: input.text }
@@ -227,6 +219,7 @@ export class RoomService {
     alias: string,
     clientId: string,
     file: StoredFile,
+    replyToId?: string,
   ): RoomMessage {
     const room = this.byId(roomId);
     if (!room.participants.has(sessionId)) throw new DomainError('NOT_IN_ROOM', 'Ya no formas parte de la sala', 403);
@@ -234,6 +227,7 @@ export class RoomService {
     if (existing !== undefined) return existing;
     if (room.files.size >= this.config.maxFilesPerRoom) throw new DomainError('FILE_LIMIT', 'La sala ha alcanzado el limite de archivos', 409);
     room.files.set(file.id, file);
+    const reply = replyToId === undefined ? undefined : this.replySnapshot(room, replyToId);
     const message: RoomMessage = {
       id: randomUUID(),
       clientId,
@@ -241,6 +235,7 @@ export class RoomService {
       sequence: ++room.sequence,
       createdAt: this.clock(),
       sender: { id: sessionId, alias },
+      ...(reply === undefined ? {} : { reply }),
       kind: 'file',
       file: { id: file.id, name: file.name, mime: file.mime, size: file.size },
     };
@@ -265,7 +260,7 @@ export class RoomService {
 
   publicRooms(): RoomSummary[] {
     return Array.from(this.#rooms.values())
-      .filter((room) => room.visibility === 'public' && room.expiresAt > this.clock())
+      .filter((room) => room.visibility === 'public')
       .sort((left, right) => right.createdAt - left.createdAt)
       .map((room) => this.summary(room));
   }
@@ -281,10 +276,9 @@ export class RoomService {
   }
 
   async sweep(now = this.clock()): Promise<void> {
-    const expired: Array<{ id: string; reason: 'expired' | 'empty' }> = [];
+    const expired: Array<{ id: string; reason: 'empty' }> = [];
     for (const room of this.#rooms.values()) {
-      if (room.expiresAt <= now) expired.push({ id: room.id, reason: 'expired' });
-      else if (room.emptySince !== undefined && now - room.emptySince >= this.config.roomEmptyTtlMs) {
+      if (room.emptySince !== undefined && now - room.emptySince >= this.config.roomEmptyTtlMs) {
         expired.push({ id: room.id, reason: 'empty' });
       }
     }
@@ -302,6 +296,24 @@ export class RoomService {
       const removed = room.messages.shift();
       if (removed !== undefined) room.messageByClientId.delete(removed.clientId);
     }
+  }
+
+  private replySnapshot(room: Room, messageId: string): ReplySnapshot {
+    const original = room.messages.find((message) => message.id === messageId);
+    if (original === undefined) {
+      throw new DomainError('REPLY_NOT_FOUND', 'El mensaje al que respondes ya no esta disponible', 404);
+    }
+    const preview = original.kind === 'text'
+      ? original.text.length > 160 ? `${original.text.slice(0, 157)}…` : original.text
+      : original.kind === 'drawing'
+        ? 'Dibujo'
+        : original.file.name.length > 160 ? `${original.file.name.slice(0, 157)}…` : original.file.name;
+    return {
+      messageId: original.id,
+      senderAlias: original.sender.alias,
+      kind: original.kind,
+      preview,
+    };
   }
 
   private byCode(code: string): Room {
@@ -325,7 +337,6 @@ export class RoomService {
       participantCount: room.participants.size,
       maxParticipants: room.maxParticipants,
       createdAt: room.createdAt,
-      expiresAt: room.expiresAt,
     };
   }
 
@@ -333,7 +344,7 @@ export class RoomService {
     return Array.from(room.participants.values(), publicParticipant).sort((left, right) => left.joinedAt - right.joinedAt);
   }
 
-  private async deleteRoom(roomId: string, reason: 'creator' | 'expired' | 'empty' | 'shutdown'): Promise<void> {
+  private async deleteRoom(roomId: string, reason: 'creator' | 'empty' | 'shutdown'): Promise<void> {
     const room = this.#rooms.get(roomId);
     if (room === undefined) return;
     this.#rooms.delete(roomId);

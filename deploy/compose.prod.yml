@@ -19,8 +19,7 @@ services:
       SERVE_CLIENT: "true"
       CLIENT_DIST: apps/client/dist
       TEMP_ROOT: /tmp/pictochat
-      ROOM_MAX_AGE_MS: ${ROOM_MAX_AGE_MS:-86400000}
-      ROOM_EMPTY_TTL_MS: ${ROOM_EMPTY_TTL_MS:-600000}
+      ROOM_EMPTY_TTL_MS: ${ROOM_EMPTY_TTL_MS:-300000}
       MAX_FILE_BYTES: ${MAX_FILE_BYTES:-26214400}
     expose:
       - "3001"

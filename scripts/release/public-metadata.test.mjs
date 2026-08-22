@@ -38,3 +38,32 @@ test('genera latest.json y una fuente SideStore con historial en orden inverso',
   const source = JSON.parse(await readFile(join(directory, 'sidestore-source.json'), 'utf8'));
   assert.deepEqual(source.apps[0].versions.map((entry) => entry.version), ['0.2.0', '0.1.0']);
 });
+
+test('repair conserva la fecha y rechaza republicaciones o downgrades', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'chatink-release-repair-'));
+  await writeFile(join(directory, 'sidestore-source.json'), `${JSON.stringify(EMPTY_SOURCE)}\n`);
+  await writeFile(join(directory, 'latest.json'), '{"schemaVersion":1,"channel":"stable","release":null}\n');
+  const common = {
+    outputDirectory: directory,
+    publishedAt: '2026-08-21T12:00:00.000Z',
+    apkSha256: 'a'.repeat(64),
+    ipaSha256: 'b'.repeat(64),
+    apkSize: 10,
+    ipaSize: 20,
+  };
+  await generatePublicMetadata({ ...common, tag: 'v0.2.0' });
+  const before = JSON.parse(await readFile(join(directory, 'latest.json'), 'utf8'));
+  await generatePublicMetadata({
+    ...common,
+    tag: 'v0.2.0',
+    publishedAt: '2030-01-01T00:00:00.000Z',
+    apkSha256: 'c'.repeat(64),
+    ipaSha256: 'd'.repeat(64),
+    mode: 'repair',
+  });
+  const after = JSON.parse(await readFile(join(directory, 'latest.json'), 'utf8'));
+  assert.equal(after.release.publishedAt, before.release.publishedAt);
+  assert.deepEqual(after.release.notes, before.release.notes);
+  await assert.rejects(generatePublicMetadata({ ...common, tag: 'v0.2.0' }));
+  await assert.rejects(generatePublicMetadata({ ...common, tag: 'v0.1.0' }));
+});

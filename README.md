@@ -1,6 +1,6 @@
-# Chat-Ink
+# ChatInk
 
-Chat-Ink es un MVP de chat efímero inspirado en la inmediatez de los chats de consolas portátiles, con identidad visual y recursos propios. Permite crear salas y compartir texto, dibujos vectoriales y archivos temporales en tiempo real desde web/PWA, Android e iOS.
+ChatInk es un MVP de chat efímero inspirado en la inmediatez de los chats de consolas portátiles, con identidad visual y recursos propios. Permite crear salas y compartir texto, dibujos vectoriales y archivos temporales en tiempo real desde web/PWA, Android e iOS.
 
 No usa base de datos. Reiniciar el servidor elimina todas las salas y conversaciones. No implementa ni afirma cifrado de extremo a extremo.
 
@@ -85,7 +85,13 @@ Abre `http://localhost:5173`; la API escucha en `http://localhost:3001`. `npm ru
 | `npm run cap:sync` | Build web y sincronización de plataformas existentes |
 | `npm run android` / `ios` | Sincroniza y abre el IDE nativo |
 
-Los directorios nativos son generados y están ignorados para evitar guardar accidentalmente firma o configuración local. Si se decide versionarlos, deben revisarse primero los identificadores, iconos y ajustes de firma.
+Los directorios nativos son generados y están ignorados para evitar guardar accidentalmente firma o configuración local. El script `native:configure` alinea los proyectos generados con `ChatInk`, `io.github.a1var0w.chatink`, la versión de `package.json` y su `versionCode` determinista. No modifica certificados, keystores ni perfiles de aprovisionamiento.
+
+### Assets nativos reproducibles
+
+La única fuente gráfica nativa es `apps/client/assets/logo.png`. `@capacitor/assets` 3.0.5 genera desde ella el icono adaptativo Android (foreground/background y todas las densidades), iconos circulares, splash claro/oscuro en retrato y paisaje, y el catálogo iOS. El manifiesto PWA conserva sus iconos y declara `purpose: any maskable`. No se copian binarios a mano ni se guardan recursos nativos derivados en Git.
+
+En un clon nuevo, usa `npm run cap:add:android` o `npm run cap:add:ios`; en plataformas ya creadas usa `npm run cap:sync`. Los tres comandos construyen el PWA, sincronizan Capacitor, aplican la configuración nativa y regeneran assets. Comprueba el resultado antes de abrir una PR con `npm run native:configure` y el build del IDE correspondiente. Si el proyecto nativo local contiene firma o aprovisionamiento privado, consérvalo fuera de Git y revisa cualquier cambio de identificador antes de regenerarlo.
 
 Para un bundle nativo funcional, define `VITE_SERVER_URL=https://api.example.com` y `VITE_PUBLIC_APP_URL=https://chat.example.com` antes de `cap:add:*` o `cap:sync`; esas URLs quedan incorporadas al JavaScript. La segunda produce enlaces de invitación web válidos desde Android/iOS. Incluye `https://localhost` y/o `capacitor://localhost` en `ALLOWED_ORIGINS` según el esquema de la plataforma. El valor de servidor en producción debe ser HTTPS porque `cleartext` está deshabilitado.
 
@@ -107,7 +113,7 @@ Consulta [protocolo WebSocket](docs/WEBSOCKET_PROTOCOL.md), [modelo de amenazas]
 
 ## Datos efímeros
 
-- Una sala se elimina al cerrarla su creador, al superar `ROOM_MAX_AGE_MS` (24 h por defecto) o tras permanecer vacía `ROOM_EMPTY_TTL_MS` (10 min).
+- Una sala se elimina al cerrarla su creador o tras permanecer vacía `ROOM_EMPTY_TTL_MS` (5 min por defecto).
 - El borrado vacía mapas en memoria y elimina recursivamente solo el subdirectorio controlado de esa sala.
 - En arranque se limpia `TEMP_ROOT`; un barrido periódico quita salas caducadas y archivos huérfanos.
 - En `SIGINT`/`SIGTERM` se ejecuta el mismo cierre y limpieza.
@@ -133,24 +139,24 @@ Un despliegue horizontal necesita afinidad de sesión y un coordinador compartid
 
 ## Obtener el IPA desde GitHub Actions
 
-El workflow `.github/workflows/ios-builder.yml` usa `macos-26`, instala las dependencias de forma reproducible, genera el proyecto Capacitor con CocoaPods y compila `App.xcworkspace` para iPhone. Después crea y verifica `Chat-Ink-unsigned.ipa` y lo publica durante 14 días como artefacto `Chat-Ink-iOS-unsigned`.
+El workflow `.github/workflows/ios-builder.yml` usa `macos-26`, instala las dependencias de forma reproducible, genera los assets y el proyecto Capacitor con CocoaPods y compila `App.xcworkspace` para iPhone. Después crea y verifica `ChatInk-<versión>.ipa` y lo publica durante 14 días con el nombre de artifact solicitado por el workflow.
 
 Para descargarlo:
 
 1. Abre la pestaña **Actions** del repositorio.
 2. Entra en **ios-builder** y selecciona la ejecución de tu commit.
-3. En **Artifacts**, descarga `Chat-Ink-iOS-unsigned` y descomprime el ZIP descargado por GitHub.
+3. En **Artifacts**, descarga el artifact de iOS de esa ejecución y descomprime el ZIP descargado por GitHub.
 
-Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. Para obtener uno instalable hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil de aprovisionamiento compatible con `com.doodledrop.app` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
+Este IPA no está firmado y, por tanto, no puede instalarse directamente en un iPhone ni distribuirse por TestFlight/App Store. SideStore puede volver a firmarlo con la cuenta de desarrollo del usuario; para TestFlight/App Store hacen falta una cuenta de Apple Developer, un certificado de distribución, un perfil compatible con `io.github.a1var0w.chatink` y un export firmado. Esos elementos son privados y no se generan ni se guardan en el repositorio.
 
 ## Obtener Android desde GitHub Actions
 
 El workflow `.github/workflows/android-builder.yml` usa Ubuntu, Android SDK 36 y Gradle Wrapper para generar dos salidas `release`, ambas firmadas con la keystore privada de GitHub y acompañadas de su SHA-256:
 
-- `Chat-Ink-Android-release`: APK alineado para páginas de 16 KiB, pensado para una instalación manual puntual.
-- `Chat-Ink-Android-Play-release`: Android App Bundle (`.aab`) firmado con la clave de subida, pensado para Google Play.
+- `ChatInk-Android-release`: APK alineado para páginas de 16 KiB, pensado para una instalación manual puntual.
+- `ChatInk-Android-Play-release`: Android App Bundle (`.aab`) firmado con la clave de subida, pensado para Google Play.
 
-El `versionCode` aumenta automáticamente con cada ejecución del workflow para que Play Console acepte las actualizaciones. Los dos artefactos se conservan durante 14 días.
+En una release oficial, el `versionCode` se deriva de SemVer de forma determinista; en un builder manual usa el número de ejecución para que Play Console acepte actualizaciones. Los dos artefactos se conservan durante 14 días.
 
 Los builders se ejecutan manualmente para artifacts de desarrollo. Las releases oficiales se crean exclusivamente con un tag SemVer y se publican como assets en el repositorio público `A1VAR0W/ChatInk-Releases`; consulta la [guía de releases](docs/RELEASES.md) para los secretos, la verificación de firmas, SideStore y los comandos exactos.
 
@@ -160,11 +166,11 @@ Una firma válida no da reputación automática a un APK descargado desde GitHub
 
 La vía recomendada para que las pruebas se instalen mediante un canal reconocido es una [pista de prueba interna de Google Play](https://support.google.com/googleplay/android-developer/answer/9845334?hl=es):
 
-1. Antes de la primera subida, confirma el identificador en `apps/client/capacitor.config.ts`. Actualmente es `com.doodledrop.app`; Google Play lo fija de forma permanente al subir el primer artefacto.
+1. Antes de la primera subida, confirma el identificador en `apps/client/capacitor.config.ts`. Actualmente es `io.github.a1var0w.chatink`; Google Play lo fija de forma permanente al subir el primer artefacto.
 2. Crea la aplicación en Play Console y acepta **Play App Signing**.
-3. En **Probar y lanzar → Pruebas → Prueba interna**, crea una versión y sube `Chat-Ink-android-play-release.aab` desde el artefacto `Chat-Ink-Android-Play-release`.
+3. En **Probar y lanzar → Pruebas → Prueba interna**, crea una versión y sube `ChatInk-android-play-release.aab` desde el artefacto `ChatInk-Android-Play-release`.
 4. Añade las cuentas de Google de los testers, publica la pista y comparte su enlace de participación.
-5. Instala y actualiza Chat-Ink desde la ficha de Google Play que abre ese enlace, no desde el APK descargado de GitHub.
+5. Instala y actualiza ChatInk desde la ficha de Google Play que abre ese enlace, no desde el APK descargado de GitHub.
 
 En una aplicación nueva, Google Play usará la keystore configurada aquí como clave de subida y firmará los APK que entrega a los dispositivos con la clave de firma de la aplicación. Si también se distribuye fuera de Play y se necesita conservar exactamente la misma firma entre tiendas, hay que elegir esa estrategia durante la [configuración de Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756?hl=es).
 
@@ -207,4 +213,4 @@ Se admiten JPEG, PNG, GIF, WebP, AVIF, MP4, WebM, PDF, ZIP, documentos OOXML/ODF
 - La validación de archivos es una lista permitida conservadora; formatos legítimos no reconocidos se rechazan.
 - El borrado es de aplicación, no forense.
 
-Siguientes mejoras recomendadas: adaptador ClamAV con cuarentena, pruebas de accesibilidad automatizadas, iconos nativos generados por plataforma, export firmado en iOS/Android y métricas agregadas que nunca incluyan contenido.
+Siguientes mejoras recomendadas: adaptador ClamAV con cuarentena, pruebas de accesibilidad automatizadas, export firmado en iOS/Android y métricas agregadas que nunca incluyan contenido.

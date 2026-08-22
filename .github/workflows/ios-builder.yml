@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       release_tag:
-        description: Tag SemVer oficial; vacío solo para un build manual de desarrollo.
+        description: Tag SemVer oficial; vacío solo para un build manual de preproducción.
         required: false
         default: ""
         type: string
@@ -21,21 +21,20 @@ on:
       artifact_name:
         description: Nombre del artifact de GitHub Actions.
         required: true
-        default: ChatInk-iOS-development
+        default: ChatInk-iOS-preproduction
         type: string
       release_tag:
-        description: Tag vMAJOR.MINOR.PATCH para un build reproducible; déjalo vacío para desarrollo.
+        description: Tag vMAJOR.MINOR.PATCH para un build reproducible; déjalo vacío para preproducción.
         required: false
         default: ""
         type: string
       target_environment:
-        description: Entorno GitHub que contiene PUBLIC_SERVER_URL y PUBLIC_APP_URL.
+        description: Entorno GitHub de preproducción que contiene PUBLIC_SERVER_URL y PUBLIC_APP_URL.
         required: true
-        default: development
+        default: preproduction
         type: choice
         options:
-          - development
-          - production
+          - preproduction
 
 permissions:
   contents: read
@@ -46,7 +45,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 35
     environment:
-      name: ${{ inputs.target_environment || 'development' }}
+      name: ${{ inputs.target_environment || 'preproduction' }}
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_code: ${{ steps.version.outputs.version_code }}
@@ -96,13 +95,19 @@ jobs:
         env:
           VITE_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
           VITE_PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
+          VITE_APP_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VITE_RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          VITE_ENABLE_UPDATE_CHECKS: 'true'
+          VITE_UPDATE_MANIFEST_URL: ${{ (inputs.target_environment || 'preproduction') == 'preproduction' && 'https://chat-ink.tail552c89.ts.net:8443/preproduction-update.json' || 'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json' }}
 
       - name: Create and sync Capacitor iOS project
         working-directory: apps/client
         run: |
           npx cap add ios --packagemanager CocoaPods
+          node ../../scripts/native/configure-projects.mjs
+          npm run assets:generate:ios
           npx cap sync ios
-          npm run icons:apply:ios
 
       - name: Install CocoaPods
         working-directory: apps/client/ios/App

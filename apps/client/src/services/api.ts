@@ -66,6 +66,7 @@ export function uploadFile(
   roomToken: string,
   sessionToken: string,
   onProgress: (value: number) => void,
+  replyToId?: string,
 ): UploadTask {
   const xhr = new XMLHttpRequest();
   const promise = new Promise<UploadResponse>((resolve, reject) => {
@@ -84,6 +85,7 @@ export function uploadFile(
     xhr.addEventListener('abort', () => reject(new ApiClientError('UPLOAD_CANCELLED', 'Subida cancelada', 0)));
     const form = new FormData();
     form.append('clientId', clientId);
+    if (replyToId !== undefined) form.append('replyToId', replyToId);
     form.append('file', file, file.name);
     xhr.send(form);
   });

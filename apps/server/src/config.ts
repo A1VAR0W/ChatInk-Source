@@ -21,14 +21,12 @@ const envSchema = z.object({
   TEMP_ROOT: z.string().optional(),
   SESSION_TTL_MS: positiveInteger(43_200_000),
   ROOM_TOKEN_TTL_MS: positiveInteger(86_400_000),
-  ROOM_MAX_AGE_MS: positiveInteger(86_400_000),
-  ROOM_EMPTY_TTL_MS: positiveInteger(600_000),
+  ROOM_EMPTY_TTL_MS: positiveInteger(300_000),
   CLEANUP_INTERVAL_MS: positiveInteger(60_000),
   ORPHAN_MAX_AGE_MS: positiveInteger(3_600_000),
   ROOM_MAX_PARTICIPANTS: positiveInteger(24),
   ROOMS_PER_SESSION: positiveInteger(5),
   MAX_MESSAGES_PER_ROOM: positiveInteger(500),
-  MAX_MESSAGE_CHARS: positiveInteger(1000),
   MAX_FILE_BYTES: positiveInteger(26_214_400),
   MAX_FILES_PER_ROOM: positiveInteger(40),
   API_RATE_LIMIT_PER_MINUTE: positiveInteger(120),
@@ -50,14 +48,12 @@ export interface AppConfig {
   tempRoot: string;
   sessionTtlMs: number;
   roomTokenTtlMs: number;
-  roomMaxAgeMs: number;
   roomEmptyTtlMs: number;
   cleanupIntervalMs: number;
   orphanMaxAgeMs: number;
   roomMaxParticipants: number;
   roomsPerSession: number;
   maxMessagesPerRoom: number;
-  maxMessageChars: number;
   maxFileBytes: number;
   maxFilesPerRoom: number;
   apiRateLimitPerMinute: number;
@@ -91,14 +87,12 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     tempRoot: resolve(env.TEMP_ROOT ?? join(tmpdir(), 'pictochat-mvp')),
     sessionTtlMs: env.SESSION_TTL_MS,
     roomTokenTtlMs: env.ROOM_TOKEN_TTL_MS,
-    roomMaxAgeMs: env.ROOM_MAX_AGE_MS,
     roomEmptyTtlMs: env.ROOM_EMPTY_TTL_MS,
     cleanupIntervalMs: env.CLEANUP_INTERVAL_MS,
     orphanMaxAgeMs: env.ORPHAN_MAX_AGE_MS,
     roomMaxParticipants: env.ROOM_MAX_PARTICIPANTS,
     roomsPerSession: env.ROOMS_PER_SESSION,
     maxMessagesPerRoom: env.MAX_MESSAGES_PER_ROOM,
-    maxMessageChars: env.MAX_MESSAGE_CHARS,
     maxFileBytes: env.MAX_FILE_BYTES,
     maxFilesPerRoom: env.MAX_FILES_PER_ROOM,
     apiRateLimitPerMinute: env.API_RATE_LIMIT_PER_MINUTE,

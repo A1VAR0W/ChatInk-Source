@@ -17,7 +17,7 @@ done
 
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
-  echo "Ya hay una actualizacion de Chat-Ink en curso"
+  echo "Ya hay una actualizacion de ChatInk en curso"
   exit 0
 fi
 
@@ -101,4 +101,4 @@ if ! wait_for_app || ! wait_for_https; then
   exit 1
 fi
 
-echo "Chat-Ink actualizado y saludable: https://${APP_DOMAIN}"
+echo "ChatInk actualizado y saludable: https://${APP_DOMAIN}"

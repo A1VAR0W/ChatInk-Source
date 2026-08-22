@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  localStorage.removeItem('chatink.message-text-size');
+  delete document.documentElement.dataset.messageTextSize;
+});
 
 describe('access and lobby UI', () => {
   it('validates the temporary alias before contacting the server', async () => {
@@ -30,5 +34,24 @@ describe('access and lobby UI', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: /Dónde quieres/ })).toBeInTheDocument());
     expect(screen.getByText('Ada')).toBeInTheDocument();
     expect(sessionStorage.getItem('doodledrop.session')).toContain('temporary-token');
+  });
+
+  it('guarda el tamaño de lectura elegido desde el lobby', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/api/sessions')) {
+        return Promise.resolve(new Response(JSON.stringify({ sessionId: 'session-1', alias: 'Ada', token: 'temporary-token', expiresAt: Date.now() + 60_000 }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ rooms: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('¿Cómo te llamamos?'), { target: { value: 'Ada' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    await screen.findByRole('heading', { name: /Dónde quieres/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Grande' }));
+    await waitFor(() => expect(document.documentElement.dataset.messageTextSize).toBe('large'));
+    expect(localStorage.getItem('chatink.message-text-size')).toBe('large');
   });
 });
