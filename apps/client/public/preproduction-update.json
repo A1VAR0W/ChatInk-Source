@@ -4,7 +4,7 @@
   "release": {
     "tag": "v0.2.0",
     "version": "0.2.0",
-    "versionCode": 4002,
+    "versionCode": 4001,
     "publishedAt": "2026-08-25T17:43:00.000Z",
     "minimumSupportedVersion": "0.2.0",
     "mandatory": true,
@@ -17,7 +17,7 @@
     "platforms": {
       "android": {
         "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.apk",
-        "sha256": "dbf1dd16c9c8371854d55f4bfac9d81b1bf024d667ac4b0762f40c6e425628c7",
+        "sha256": "aaabb5719e4ed73dccf2387f4420a20929ab747fe55028288cf8ef9a1c10f096",
         "size": 4704477
       },
       "ios": {
