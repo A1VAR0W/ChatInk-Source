@@ -3,7 +3,7 @@ set -Eeuo pipefail
 umask 077
 
 APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-BRANCH="${CHATINK_PREPRODUCTION_BRANCH:-preproduction}"
+BRANCH="${CHATINK_PREPRODUCTION_BRANCH:-develop}"
 UPSTREAM="${CHATINK_PREPRODUCTION_UPSTREAM:-origin/develop}"
 PUBLIC_URL="${CHATINK_PREPRODUCTION_URL:-https://chat-ink.tail552c89.ts.net:8443}"
 HTTP_DOMAIN="${CHATINK_PREPRODUCTION_HTTP_DOMAIN:-chat-ink-staging.81.0.45.99.nip.io}"

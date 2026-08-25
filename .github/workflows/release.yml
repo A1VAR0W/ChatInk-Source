@@ -71,10 +71,10 @@ jobs:
             comparison_status="$(curl --fail --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer $GITHUB_TOKEN" \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/compare/main...$release_commit" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/compare/master...$release_commit" \
               | node --input-type=module -e 'let raw = ""; process.stdin.setEncoding("utf8"); process.stdin.on("data", (chunk) => { raw += chunk; }); process.stdin.on("end", () => { const status = JSON.parse(raw).status; if (typeof status !== "string") process.exit(1); process.stdout.write(status); });')"
             if [[ "$comparison_status" != "behind" && "$comparison_status" != "identical" ]]; then
-              echo 'El commit etiquetado debe pertenecer a la historia de main.' >&2
+              echo 'El commit etiquetado debe pertenecer a la historia de master.' >&2
               exit 1
             fi
 

@@ -3,12 +3,12 @@ name: ci
 on:
   push:
     branches:
-      - main
+      - master
       - develop
       - "codex/**"
   pull_request:
     branches:
-      - main
+      - master
       - develop
 
 permissions:
@@ -99,11 +99,11 @@ jobs:
     needs: verify
     if: >-
       github.event_name == 'push' &&
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preproduction' }}
+      name: ${{ github.ref == 'refs/heads/master' && 'production' || 'preproduction' }}
     permissions:
       contents: read
       packages: write
@@ -132,7 +132,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
             type=raw,value=preproduction,enable=${{ github.ref == 'refs/heads/develop' }}
             type=sha,format=long,prefix=sha-
 
