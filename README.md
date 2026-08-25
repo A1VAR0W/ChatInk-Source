@@ -10,11 +10,11 @@ Desarrollo y Producción están aislados por configuración, contenedores, secre
 
 | | Desarrollo local | Preproducción | Producción |
 | --- | --- | --- | --- |
-| Rama/entorno GitHub | local y `codex/**` → `development` | `develop` → `preproduction` | `main` → `production` |
+| Rama/entorno GitHub | local y `codex/**` → `development` | `develop` → `preproduction` | `master` → `production` |
 | Configuración | `.env.development` | configuración aislada del servidor PRE | `deploy/.env.production` |
 | Docker Compose | `docker-compose.yml`, proyecto `pictochat-development` | `deploy/compose.preproduction.yml`, proyecto `chatink-preproduction` | `deploy/compose.prod.yml`, proyecto `pictochat` |
 | Cliente | Vite con hot reload en `:5173` | PWA compilado y builds móviles de prueba | PWA compilado servido por Node/Caddy |
-| Imagen GHCR | — | `:preproduction` desde `develop` | `:latest` desde `main` |
+| Imagen GHCR | — | `:preproduction` desde `develop` | `:latest` desde `master` |
 
 Los archivos con valores reales están ignorados por Git. Solo se versionan las plantillas `*.example`; no reutilices el `TOKEN_SECRET` de un entorno en el otro. Todo candidato se prueba primero en PRE desde `develop`; solo el mismo commit aprobado se promociona a Producción. Consulta [la guía completa de entornos](docs/ENVIRONMENTS.md).
 

@@ -5,7 +5,7 @@ Esta opción publica el PWA, la API y Socket.IO bajo un único dominio HTTPS. So
 ## Flujo de publicación
 
 1. Un cambio entra en `develop` y se valida primero en Preproducción.
-2. Tras la aprobación explícita del mismo candidato, se promociona a `main` sin cambiar la versión.
+2. Tras la aprobación explícita del mismo candidato, se promociona a `master` sin cambiar la versión.
 3. GitHub Actions ejecuta tipos, lint, pruebas, build y smoke test.
 4. Solo si todo pasa, publica `ghcr.io/a1var0w/pictochat:latest` para `linux/amd64` y `linux/arm64`.
 5. El servidor consulta esa etiqueta cada cinco minutos.
@@ -29,7 +29,7 @@ Si la dirección WAN del router pertenece a `10.0.0.0/8`, `100.64.0.0/10`, `172.
 
 ## Publicar la imagen privada
 
-Después de fusionar la rama del proyecto en `main`, el job `publish` crea el paquete en GHCR. El primer paquete es privado por defecto. En el servidor inicia sesión con un token de GitHub de solo lectura para paquetes:
+Después de fusionar la rama del proyecto en `master`, el job `publish` crea el paquete en GHCR. El primer paquete es privado por defecto. En el servidor inicia sesión con un token de GitHub de solo lectura para paquetes:
 
 ```bash
 read -rsp "Token GHCR: " GHCR_TOKEN; echo

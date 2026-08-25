@@ -30,7 +30,7 @@ El único camino permitido es:
 develop → preproducción (validación + builds) → aprobación → producción (mismo commit y misma versión)
 ```
 
-Los pushes, tags y despliegues directos a `main` quedan reservados a esa última promoción aprobada.
+Los pushes, tags y despliegues directos a `master` quedan reservados a esa última promoción aprobada.
 
 El manifiesto público usa un único contrato. Antes de la primera publicación es exactamente:
 
@@ -87,15 +87,15 @@ Pégalo directamente en el secreto de GitHub y conserva una copia cifrada y fuer
 
 ## Promover un candidato a producción
 
-Solo después de validar el candidato en Preproducción y recibir aprobación explícita, promociona el mismo commit y el mismo número de versión a `main`:
+Solo después de validar el candidato en Preproducción y recibir aprobación explícita, promociona el mismo commit y el mismo número de versión a `master`:
 
 ```powershell
 git switch develop
 git pull --ff-only origin develop
-git switch main
+git switch master
 git merge --ff-only develop
 git tag -a v0.1.0 -m "ChatInk v0.1.0"
-git push origin main v0.1.0
+git push origin master v0.1.0
 ```
 
 No crees tags para probar el pipeline. Para ensayar sin publicar, abre **Actions → release → Run workflow**, indica la versión canónica actual y usa `dry-run`. El dry-run ejecuta quality gates, genera los binarios y adjunta una previsualización privada de los metadatos, pero no crea una GitHub Release ni escribe en el repositorio público.
@@ -133,7 +133,7 @@ En iOS, copia esa URL en SideStore o AltStore para añadir la fuente. SideStore 
 
 ## Preproducción frente a release
 
-Los workflows `android-builder` e `ios-builder` manuales generan artifacts de Preproducción con el nombre SemVer del candidato, sin sufijos visibles de ejecución, y no distribuyen nada públicamente. El flujo de `release` solo se activa automáticamente con el tag `v*` de la promoción aprobada. Nunca se publica una release pública por un push normal a `develop` ni se salta Preproducción para llegar a `main`.
+Los workflows `android-builder` e `ios-builder` manuales generan artifacts de Preproducción con el nombre SemVer del candidato, sin sufijos visibles de ejecución, y no distribuyen nada públicamente. El flujo de `release` solo se activa automáticamente con el tag `v*` de la promoción aprobada. Nunca se publica una release pública por un push normal a `develop` ni se salta Preproducción para llegar a `master`.
 
 El build de producción no genera source maps. Esto reduce la exposición innecesaria del fuente en los bundles públicos, pero el JavaScript incluido en una PWA o aplicación Capacitor siempre debe considerarse visible: nunca guardes una credencial privada en el frontend.
 
@@ -142,6 +142,6 @@ El build de producción no genera source maps. Esto reduce la exposición innece
 - `PUBLIC_SERVER_URL` y `PUBLIC_APP_URL` de `production` son HTTPS y correctas.
 - Los cinco secretos de release están configurados y la keystore tiene backup seguro.
 - El mismo commit y la misma versión SemVer ya han sido validados en Preproducción.
-- La promoción a `main` está aprobada explícitamente.
+- La promoción a `master` está aprobada explícitamente.
 - La GitHub Release contiene exactamente APK, IPA y `SHA256SUMS`.
 - `latest.json` y `sidestore-source.json` apuntan a esa misma release.

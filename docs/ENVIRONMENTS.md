@@ -43,7 +43,7 @@ El servidor rechaza los secretos conocidos de las plantillas cuando `NODE_ENV=pr
 
 Los workflows asocian automáticamente cada ejecución a uno de estos entornos:
 
-- `main` → GitHub Environment `production` → imagen `ghcr.io/a1var0w/pictochat:latest`.
+- `master` → GitHub Environment `production` → imagen `ghcr.io/a1var0w/pictochat:latest`.
 - `develop` → GitHub Environment `preproduction` para la validación y la imagen desplegable de PRE `ghcr.io/a1var0w/pictochat:preproduction`.
 - `codex/**` → GitHub Environment `development` para verificaciones de ramas de trabajo.
 - Todas las imágenes publicadas reciben además `sha-<commit>` para fijar una versión exacta.
@@ -52,15 +52,15 @@ En **Settings → Environments**, crea `development`, `preproduction` y `product
 
 Para `production`, configura además:
 
-1. Deployment branches: solo `main`.
+1. Deployment branches: solo `master`.
 2. Required reviewers para exigir aprobación antes de publicar artefactos de Producción, si el plan de GitHub lo permite.
-3. Impide que `develop` se fusione directamente sin que pase `ci`; protege también `main` y exige pull request.
+3. Impide que `develop` se fusione directamente sin que pase `ci`; protege también `master` y exige pull request.
 
 ## Promoción recomendada
 
 1. Trabaja en `codex/**` o una rama de funcionalidad y abre PR hacia `develop`.
 2. Despliega `develop` en Preproducción, valida el cliente contra sus URLs y genera las builds móviles del mismo candidato.
-3. Tras aprobar explícitamente esa versión de PRE, abre PR de `develop` a `main` sin modificar de nuevo la versión.
-4. Tras aprobar y pasar CI, `main` publica `:latest`; el servidor de Producción la aplica con healthcheck y rollback.
+3. Tras aprobar explícitamente esa versión de PRE, abre PR de `develop` a `master` sin modificar de nuevo la versión.
+4. Tras aprobar y pasar CI, `master` publica `:latest`; el servidor de Producción la aplica con healthcheck y rollback.
 
 No se promueven archivos `.env`: se promueve código. Cada entorno conserva sus propias variables y secretos.
