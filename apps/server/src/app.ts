@@ -80,7 +80,7 @@ export async function buildApplication(config: AppConfig): Promise<PictoApplicat
       else callback(new Error('Origen no permitido'), false);
     },
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Token', 'X-ChatInk-Client-Version', 'X-ChatInk-Client-Build', 'X-ChatInk-Client-Platform', 'X-ChatInk-Client-Channel'],
     credentials: false,
     maxAge: 600,
   });

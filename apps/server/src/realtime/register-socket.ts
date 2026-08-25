@@ -10,6 +10,7 @@ import type { AppConfig } from '../config.js';
 import { DomainError, type RoomService } from '../domain/room-service.js';
 import { MemoryRateLimiter } from '../security/rate-limiter.js';
 import { TokenError, type TokenService } from '../security/tokens.js';
+import { clientVersionSupported, unsupportedClientPayload } from '../compatibility/client-version.js';
 
 export type RealtimeServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 
@@ -22,7 +23,7 @@ export function registerSocketServer(
   io: RealtimeServer,
   roomService: RoomService,
   tokens: TokenService,
-  config: Pick<AppConfig, 'allowedOrigins' | 'messageRateLimitPerMinute' | 'connectionRateLimitPerMinute'>,
+  config: Pick<AppConfig, 'allowedOrigins' | 'messageRateLimitPerMinute' | 'connectionRateLimitPerMinute' | 'minSupportedClientVersion' | 'latestClientVersion' | 'clientReleaseUrl'>,
 ): void {
   const limiter = new MemoryRateLimiter();
   const typingTimers = new Map<string, NodeJS.Timeout>();
@@ -151,6 +152,19 @@ export function registerSocketServer(
         }
         const sessionToken = typeof socket.handshake.auth.sessionToken === 'string' ? socket.handshake.auth.sessionToken : '';
         const roomToken = typeof socket.handshake.auth.roomToken === 'string' ? socket.handshake.auth.roomToken : '';
+        const client = typeof socket.handshake.auth.client === 'object' && socket.handshake.auth.client !== null
+          ? socket.handshake.auth.client as Record<string, unknown> : {};
+        const policy = {
+          minimumSupportedVersion: config.minSupportedClientVersion,
+          latestVersion: config.latestClientVersion,
+          releaseUrl: config.clientReleaseUrl,
+        };
+        if (!clientVersionSupported(client.version, policy)) {
+          const error = new Error('Debes actualizar ChatInk') as Error & { data?: ReturnType<typeof unsupportedClientPayload> };
+          error.data = unsupportedClientPayload(policy);
+          next(error);
+          return;
+        }
         const [session, room] = await Promise.all([tokens.verifySession(sessionToken), tokens.verifyRoom(roomToken)]);
         if (session.sid !== room.sid || !roomService.hasRoom(room.rid)) throw new TokenError('La autorizacion no corresponde a esta sala');
         socket.data = { sessionId: session.sid, alias: session.alias, roomId: room.rid, role: room.role };

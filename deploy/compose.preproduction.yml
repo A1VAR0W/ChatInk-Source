@@ -9,6 +9,7 @@ services:
       args:
         VITE_SERVER_URL: ${PUBLIC_APP_URL:?PUBLIC_APP_URL es obligatorio}
         VITE_PUBLIC_APP_URL: ${PUBLIC_APP_URL:?PUBLIC_APP_URL es obligatorio}
+        VITE_UPDATE_MANIFEST_URL: https://chat-ink.tail552c89.ts.net:8443/preproduction-update.json
     image: chatink-preproduction:local
     init: true
     restart: unless-stopped
@@ -35,6 +36,9 @@ services:
       TEMP_ROOT: /tmp/chatink-preproduction
       ROOM_EMPTY_TTL_MS: ${ROOM_EMPTY_TTL_MS:-300000}
       MAX_FILE_BYTES: ${MAX_FILE_BYTES:-26214400}
+      MIN_SUPPORTED_CLIENT_VERSION: ${MIN_SUPPORTED_CLIENT_VERSION:-0.0.0}
+      LATEST_CLIENT_VERSION: ${LATEST_CLIENT_VERSION:-0.0.0}
+      CLIENT_RELEASE_URL: ${CLIENT_RELEASE_URL:-https://github.com/A1VAR0W/Chat-Ink/releases}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s

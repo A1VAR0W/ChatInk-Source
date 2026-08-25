@@ -8,6 +8,14 @@ export const APP = Object.freeze({
   tintColor: '#6c5ce7',
 });
 
+export function appForChannel(channel = 'production') {
+  if (channel === 'preproduction') {
+    return Object.freeze({ ...APP, name: 'ChatInk PRE', bundleIdentifier: `${APP.bundleIdentifier}.preproduction` });
+  }
+  if (channel !== 'production') throw new Error(`Canal nativo no válido: ${channel}`);
+  return APP;
+}
+
 export const LEGACY_BUNDLE_IDENTIFIERS = Object.freeze([
   'io.github.a1var0w.chatink',
   'com.doodledrop.app',

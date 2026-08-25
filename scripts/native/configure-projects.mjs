@@ -2,7 +2,7 @@ import { access, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/pro
 import { constants } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { APP } from '../release/release-config.mjs';
+import { appForChannel } from '../release/release-config.mjs';
 import { versionCodeFromSegments } from '../release/version.mjs';
 
 const rootDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -20,6 +20,35 @@ async function pathExists(path) {
 function replaceRequired(contents, expression, replacement, label) {
   if (!expression.test(contents)) throw new Error(`No se encontró ${label}. Regenera el proyecto nativo con Capacitor.`);
   return contents.replace(expression, replacement);
+}
+
+function setXmlAttribute(openingTag, attribute, value) {
+  const expression = new RegExp(`\\sandroid:${attribute}="[^"]*"`);
+  const replacement = ` android:${attribute}="${value}"`;
+  return expression.test(openingTag)
+    ? openingTag.replace(expression, replacement)
+    : openingTag.replace(/>$/, `${replacement}>`);
+}
+
+async function configureAndroidSecurity(androidDirectory) {
+  const manifestPath = join(androidDirectory, 'app', 'src', 'main', 'AndroidManifest.xml');
+  if (!(await pathExists(manifestPath))) return;
+
+  let manifest = await readFile(manifestPath, 'utf8');
+  manifest = manifest.replace(/<application\b[^>]*>/, (openingTag) => {
+    let secured = setXmlAttribute(openingTag, 'allowBackup', 'false');
+    secured = setXmlAttribute(secured, 'fullBackupContent', 'false');
+    secured = setXmlAttribute(secured, 'dataExtractionRules', '@xml/data_extraction_rules');
+    secured = setXmlAttribute(secured, 'usesCleartextTraffic', 'false');
+    secured = setXmlAttribute(secured, 'networkSecurityConfig', '@xml/network_security_config');
+    return secured;
+  });
+  await writeFile(manifestPath, manifest, 'utf8');
+
+  const xmlDirectory = join(androidDirectory, 'app', 'src', 'main', 'res', 'xml');
+  await mkdir(xmlDirectory, { recursive: true });
+  await writeFile(join(xmlDirectory, 'network_security_config.xml'), `<?xml version="1.0" encoding="utf-8"?>\n<network-security-config>\n  <base-config cleartextTrafficPermitted="false" />\n</network-security-config>\n`, 'utf8');
+  await writeFile(join(xmlDirectory, 'data_extraction_rules.xml'), `<?xml version="1.0" encoding="utf-8"?>\n<data-extraction-rules>\n  <cloud-backup disableIfNoEncryptionCapabilities="true">\n    <exclude domain="root" path="." />\n  </cloud-backup>\n  <device-transfer>\n    <exclude domain="root" path="." />\n  </device-transfer>\n</data-extraction-rules>\n`, 'utf8');
 }
 
 function parseVersion(version) {
@@ -53,25 +82,26 @@ async function findMainActivity(directory) {
   return undefined;
 }
 
-async function configureAndroid(version, buildNumber) {
+async function configureAndroid(version, buildNumber, app) {
   const androidDirectory = join(rootDirectory, 'apps', 'client', 'android');
   const gradlePath = join(androidDirectory, 'app', 'build.gradle');
   if (!(await pathExists(gradlePath))) return false;
 
   let gradle = await readFile(gradlePath, 'utf8');
-  gradle = replaceRequired(gradle, /namespace\s*=\s*"[^"]+"/, `namespace = "${APP.bundleIdentifier}"`, 'namespace Android');
-  gradle = replaceRequired(gradle, /applicationId\s+"[^"]+"/, `applicationId "${APP.bundleIdentifier}"`, 'applicationId Android');
+  gradle = replaceRequired(gradle, /namespace\s*=\s*"[^"]+"/, `namespace = "${app.bundleIdentifier}"`, 'namespace Android');
+  gradle = replaceRequired(gradle, /applicationId\s+"[^"]+"/, `applicationId "${app.bundleIdentifier}"`, 'applicationId Android');
   gradle = replaceRequired(gradle, /versionCode\s+\d+/, `versionCode ${buildNumber}`, 'versionCode Android');
   gradle = replaceRequired(gradle, /versionName\s+"[^"]+"/, `versionName "${version}"`, 'versionName Android');
   await writeFile(gradlePath, gradle, 'utf8');
+  await configureAndroidSecurity(androidDirectory);
 
   const stringsPath = join(androidDirectory, 'app', 'src', 'main', 'res', 'values', 'strings.xml');
   if (await pathExists(stringsPath)) {
     let strings = await readFile(stringsPath, 'utf8');
-    strings = replaceRequired(strings, /<string name="app_name">[^<]*<\/string>/, `<string name="app_name">${APP.name}</string>`, 'app_name Android');
-    strings = replaceRequired(strings, /<string name="title_activity_main">[^<]*<\/string>/, `<string name="title_activity_main">${APP.name}</string>`, 'title_activity_main Android');
-    strings = replaceRequired(strings, /<string name="package_name">[^<]*<\/string>/, `<string name="package_name">${APP.bundleIdentifier}</string>`, 'package_name Android');
-    strings = replaceRequired(strings, /<string name="custom_url_scheme">[^<]*<\/string>/, `<string name="custom_url_scheme">${APP.bundleIdentifier}</string>`, 'custom_url_scheme Android');
+    strings = replaceRequired(strings, /<string name="app_name">[^<]*<\/string>/, `<string name="app_name">${app.name}</string>`, 'app_name Android');
+    strings = replaceRequired(strings, /<string name="title_activity_main">[^<]*<\/string>/, `<string name="title_activity_main">${app.name}</string>`, 'title_activity_main Android');
+    strings = replaceRequired(strings, /<string name="package_name">[^<]*<\/string>/, `<string name="package_name">${app.bundleIdentifier}</string>`, 'package_name Android');
+    strings = replaceRequired(strings, /<string name="custom_url_scheme">[^<]*<\/string>/, `<string name="custom_url_scheme">${app.bundleIdentifier}</string>`, 'custom_url_scheme Android');
     await writeFile(stringsPath, strings, 'utf8');
   }
 
@@ -79,9 +109,9 @@ async function configureAndroid(version, buildNumber) {
   if (await pathExists(javaRoot)) {
     const mainActivity = await findMainActivity(javaRoot);
     if (mainActivity !== undefined) {
-      const target = join(javaRoot, ...APP.bundleIdentifier.split('.'), 'MainActivity.java');
+      const target = join(javaRoot, ...app.bundleIdentifier.split('.'), 'MainActivity.java');
       let source = await readFile(mainActivity, 'utf8');
-      source = replaceRequired(source, /^package\s+[^;]+;/m, `package ${APP.bundleIdentifier};`, 'package de MainActivity');
+      source = replaceRequired(source, /^package\s+[^;]+;/m, `package ${app.bundleIdentifier};`, 'package de MainActivity');
 
       if (mainActivity === target) {
         await writeFile(mainActivity, source, 'utf8');
@@ -98,7 +128,7 @@ async function configureAndroid(version, buildNumber) {
   return true;
 }
 
-async function configureIos(version, buildNumber) {
+async function configureIos(version, buildNumber, app) {
   const iosDirectory = join(rootDirectory, 'apps', 'client', 'ios');
   const projectPath = join(iosDirectory, 'App', 'App.xcodeproj', 'project.pbxproj');
   if (!(await pathExists(projectPath))) return false;
@@ -106,7 +136,7 @@ async function configureIos(version, buildNumber) {
   let project = await readFile(projectPath, 'utf8');
   project = replaceRequired(project, /CURRENT_PROJECT_VERSION\s*=\s*[^;]+;/g, `CURRENT_PROJECT_VERSION = ${buildNumber};`, 'CURRENT_PROJECT_VERSION iOS');
   project = replaceRequired(project, /MARKETING_VERSION\s*=\s*[^;]+;/g, `MARKETING_VERSION = ${version};`, 'MARKETING_VERSION iOS');
-  project = replaceRequired(project, /PRODUCT_BUNDLE_IDENTIFIER\s*=\s*[^;]+;/g, `PRODUCT_BUNDLE_IDENTIFIER = ${APP.bundleIdentifier};`, 'PRODUCT_BUNDLE_IDENTIFIER iOS');
+  project = replaceRequired(project, /PRODUCT_BUNDLE_IDENTIFIER\s*=\s*[^;]+;/g, `PRODUCT_BUNDLE_IDENTIFIER = ${app.bundleIdentifier};`, 'PRODUCT_BUNDLE_IDENTIFIER iOS');
   await writeFile(projectPath, project, 'utf8');
 
   const infoPlistPath = join(iosDirectory, 'App', 'App', 'Info.plist');
@@ -115,7 +145,7 @@ async function configureIos(version, buildNumber) {
     infoPlist = replaceRequired(
       infoPlist,
       /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/,
-      `$1${APP.name}$2`,
+      `$1${app.name}$2`,
       'CFBundleDisplayName iOS',
     );
     await writeFile(infoPlistPath, infoPlist, 'utf8');
@@ -130,9 +160,10 @@ async function main() {
   if (typeof version !== 'string') throw new Error('package.json debe contener una versión.');
   const buildNumber = nativeBuildNumber(version);
 
-  const configured = await Promise.all([configureAndroid(version, buildNumber), configureIos(version, buildNumber)]);
+  const app = appForChannel(process.env.CHATINK_BUILD_CHANNEL ?? 'production');
+  const configured = await Promise.all([configureAndroid(version, buildNumber, app), configureIos(version, buildNumber, app)]);
   const platforms = ['android', 'ios'].filter((_, index) => configured[index]);
-  process.stdout.write(`${JSON.stringify({ appId: APP.bundleIdentifier, appName: APP.name, version, buildNumber, platforms })}\n`);
+  process.stdout.write(`${JSON.stringify({ appId: app.bundleIdentifier, appName: app.name, version, buildNumber, platforms })}\n`);
 }
 
 main().catch((error) => {

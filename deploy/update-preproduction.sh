@@ -9,6 +9,12 @@ PUBLIC_URL="${CHATINK_PREPRODUCTION_URL:-https://chat-ink.tail552c89.ts.net:8443
 HTTP_DOMAIN="${CHATINK_PREPRODUCTION_HTTP_DOMAIN:-chat-ink-staging.81.0.45.99.nip.io}"
 ARTIFACTS_DIR="${CHATINK_PREPRODUCTION_ARTIFACTS_DIR:-$APP_DIR/release-artifacts}"
 COMPOSE_FILE="$APP_DIR/deploy/compose.preproduction.yml"
+APP_VERSION="${CHATINK_RELEASE_VERSION:-$(awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' "$APP_DIR/package.json")}"
+
+if [[ -z "$APP_VERSION" ]]; then
+  echo "No se pudo determinar la versión de preproducción desde package.json" >&2
+  exit 1
+fi
 
 mkdir -p "$ARTIFACTS_DIR"
 chmod 0755 "$ARTIFACTS_DIR"
@@ -19,6 +25,9 @@ compose() {
     ALLOWED_ORIGINS="$ALLOWED_ORIGINS" \
     ROOM_EMPTY_TTL_MS="${ROOM_EMPTY_TTL_MS:-300000}" \
     MAX_FILE_BYTES="${MAX_FILE_BYTES:-26214400}" \
+    MIN_SUPPORTED_CLIENT_VERSION="${MIN_SUPPORTED_CLIENT_VERSION:-$APP_VERSION}" \
+    LATEST_CLIENT_VERSION="${LATEST_CLIENT_VERSION:-$APP_VERSION}" \
+    CLIENT_RELEASE_URL="${CLIENT_RELEASE_URL:-$PUBLIC_URL/preproduction-sidestore-source.json}" \
     PUBLIC_APP_URL="$PUBLIC_URL" \
     CHATINK_PREPRODUCTION_ARTIFACTS_DIR="$ARTIFACTS_DIR" \
     docker compose --project-name chatink-preproduction -f "$COMPOSE_FILE" "$@"

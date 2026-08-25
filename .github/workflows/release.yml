@@ -364,7 +364,9 @@ jobs:
             --ipa-sha256 "$(sha256sum "$ipa" | awk '{print $1}')" \
             --apk-size "$(stat --format='%s' "$apk")" \
             --ipa-size "$(stat --format='%s' "$ipa")" \
-            --mode "$metadata_mode"
+            --mode "$metadata_mode" \
+            --minimum-supported-version "$RELEASE_TAG" \
+            --mandatory true
           node scripts/release/validate-public-metadata.mjs --directory "$metadata_directory"
 
       - name: Assert public repository contains only distribution files

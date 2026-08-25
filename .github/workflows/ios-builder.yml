@@ -103,6 +103,8 @@ jobs:
 
       - name: Create and sync Capacitor iOS project
         working-directory: apps/client
+        env:
+          CHATINK_BUILD_CHANNEL: ${{ inputs.target_environment || 'preproduction' }}
         run: |
           npx cap add ios --packagemanager CocoaPods
           node ../../scripts/native/configure-projects.mjs
@@ -118,6 +120,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           RELEASE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          CHATINK_BUILD_CHANNEL: ${{ inputs.target_environment || 'preproduction' }}
         run: |
           set -euo pipefail
           xcodebuild \
@@ -155,11 +158,12 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           RELEASE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          CHATINK_BUILD_CHANNEL: ${{ inputs.target_environment || 'preproduction' }}
         run: |
           set -euo pipefail
           ipa="ChatInk-${RELEASE_VERSION}.ipa"
           app_info="build/DerivedData/Build/Products/Release-iphoneos/App.app/Info.plist"
-          expected_bundle_identifier="$(node --input-type=module -e 'import { APP } from "./scripts/release/release-config.mjs"; process.stdout.write(APP.bundleIdentifier)')"
+          expected_bundle_identifier="$(node --input-type=module -e 'import { appForChannel } from "./scripts/release/release-config.mjs"; process.stdout.write(appForChannel(process.env.CHATINK_BUILD_CHANNEL).bundleIdentifier)')"
           ipa_entries="$RUNNER_TEMP/ipa-entries.txt"
           test -s "$ipa"
           test -f "$app_info"

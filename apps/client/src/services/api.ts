@@ -5,6 +5,7 @@ import type {
   SessionResponse,
   UploadResponse,
 } from '@pictochat/shared';
+import { clientVersionHeaders, reportUnsupportedClient } from '../platform/clientMetadata';
 
 const configuredServerUrl = import.meta.env.VITE_SERVER_URL?.trim();
 const productionServerUrl = 'https://chat-ink.tail552c89.ts.net';
@@ -23,10 +24,11 @@ export class ApiClientError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${SERVER_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...clientVersionHeaders, ...options.headers },
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({ error: 'No se pudo completar la solicitud', code: 'NETWORK_ERROR' })) as ApiError;
+    if (response.status === 426 || data.code === 'CLIENT_VERSION_UNSUPPORTED') reportUnsupportedClient();
     throw new ApiClientError(data.code, data.error, response.status);
   }
   return response.json() as Promise<T>;
@@ -47,7 +49,7 @@ export const api = {
     }),
   fileBlob: async (roomId: string, fileId: string, roomToken: string): Promise<Blob> => {
     const response = await fetch(`${SERVER_URL}/api/rooms/${roomId}/files/${fileId}`, {
-      headers: { Authorization: `Bearer ${roomToken}` },
+      headers: { Authorization: `Bearer ${roomToken}`, ...clientVersionHeaders },
     });
     if (!response.ok) throw new ApiClientError('FILE_DOWNLOAD', 'El archivo ya no esta disponible', response.status);
     return response.blob();
@@ -73,13 +75,17 @@ export function uploadFile(
     xhr.open('POST', `${SERVER_URL}/api/rooms/${roomId}/files`);
     xhr.setRequestHeader('Authorization', `Bearer ${roomToken}`);
     xhr.setRequestHeader('X-Session-Token', sessionToken);
+    for (const [header, value] of Object.entries(clientVersionHeaders)) xhr.setRequestHeader(header, value);
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
     });
     xhr.addEventListener('load', () => {
       const data = JSON.parse(xhr.responseText || '{}') as UploadResponse & ApiError;
       if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-      else reject(new ApiClientError(data.code ?? 'UPLOAD_FAILED', data.error ?? 'No se pudo subir el archivo', xhr.status));
+      else {
+        if (xhr.status === 426 || data.code === 'CLIENT_VERSION_UNSUPPORTED') reportUnsupportedClient();
+        reject(new ApiClientError(data.code ?? 'UPLOAD_FAILED', data.error ?? 'No se pudo subir el archivo', xhr.status));
+      }
     });
     xhr.addEventListener('error', () => reject(new ApiClientError('NETWORK_ERROR', 'Se perdio la conexion durante la subida', 0)));
     xhr.addEventListener('abort', () => reject(new ApiClientError('UPLOAD_CANCELLED', 'Subida cancelada', 0)));

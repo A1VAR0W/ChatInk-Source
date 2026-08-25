@@ -1,4 +1,6 @@
 import { formatBytes } from '@pictochat/shared';
+import { App as NativeApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { updateUrlForPlatform } from './updateService';
 import { useUpdates } from './UpdateProvider';
@@ -28,6 +30,16 @@ export function UpdateExperience() {
       previousFocusRef.current = null;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !updates.mandatory || !Capacitor.isNativePlatform()) return;
+    let remove: (() => Promise<void>) | undefined;
+    void NativeApp.addListener('backButton', () => {
+      // Back may close the native app, but it must never dismiss this gate.
+      void NativeApp.exitApp();
+    }).then((handle) => { remove = handle.remove; });
+    return () => { void remove?.(); };
+  }, [open, updates.mandatory]);
 
   const close = () => {
     if (updates.mandatory) return;
@@ -110,15 +122,18 @@ export function UpdateExperience() {
             onKeyDown={trapFocus}
           >
             <div className="update-dialog__eyebrow">CHATINK</div>
-            <h2 id="update-dialog-title">{useWebUpdate ? 'Actualización web lista' : 'Nueva versión disponible'}</h2>
+            <h2 id="update-dialog-title">{useWebUpdate ? 'Actualización web lista' : updates.mandatory ? 'Debes actualizar ChatInk' : 'Nueva versión disponible'}</h2>
             {!useWebUpdate && release !== undefined && (
               <>
                 <p id="update-dialog-description" className="update-dialog__lead">
-                  Tienes la versión <strong>{updates.installed?.version ?? 'actual'}</strong>. La versión <strong>{release.version}</strong> está lista. Durante el despliegue la sala puede desconectarse; actualiza y vuelve a abrir ChatInk para reconectar.
+                  {updates.mandatory
+                    ? 'Esta versión ya no es compatible y no puede seguir conectándose al servicio.'
+                    : `Tienes la versión ${updates.installed?.version ?? 'actual'}. La versión ${release.version} está lista.`}
                 </p>
                 <dl className="update-dialog__facts">
                   <div><dt>Versión instalada</dt><dd>{updates.installed?.version ?? '—'}</dd></div>
-                  <div><dt>Versión nueva</dt><dd>{release.version}</dd></div>
+                  <div><dt>{updates.mandatory ? 'Versión mínima permitida' : 'Versión nueva'}</dt><dd>{release.minimumSupportedVersion ?? release.version}</dd></div>
+                  {updates.mandatory && <div><dt>Última versión disponible</dt><dd>{release.version}</dd></div>}
                   {updates.installed?.platform !== 'web' && <div><dt>Tamaño</dt><dd>{formatBytes(updates.installed?.platform === 'ios' ? release.platforms.ios.size : release.platforms.android.size)}</dd></div>}
                 </dl>
                 {release.notes.length > 0 && (
@@ -142,8 +157,9 @@ export function UpdateExperience() {
             {useWebUpdate && <p id="update-dialog-description" className="update-dialog__lead">La nueva versión de la aplicación web ya está descargada. Recarga para activarla.</p>}
             <div className="update-dialog__actions">
               {!updates.mandatory && <button type="button" className="button button--secondary" onClick={close}>Más tarde</button>}
+              {updates.mandatory && <button type="button" className="button button--secondary" onClick={() => void updates.checkForUpdates(true)}>Reintentar</button>}
               {updates.installed?.platform === 'ios' && release !== undefined && !isPreproduction && <button type="button" className="button button--secondary" onClick={() => openExternal(release.releaseUrl)}>Ver release</button>}
-              <button ref={primaryActionRef} type="button" className="button" onClick={primaryAction}>{primaryLabel}</button>
+              <button ref={primaryActionRef} type="button" className="button" onClick={primaryAction}>{updates.mandatory ? 'Actualizar ahora' : primaryLabel}</button>
             </div>
           </div>
         </div>

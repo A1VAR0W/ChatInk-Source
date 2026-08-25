@@ -21,6 +21,9 @@ services:
       TEMP_ROOT: /tmp/pictochat
       ROOM_EMPTY_TTL_MS: ${ROOM_EMPTY_TTL_MS:-300000}
       MAX_FILE_BYTES: ${MAX_FILE_BYTES:-26214400}
+      MIN_SUPPORTED_CLIENT_VERSION: ${MIN_SUPPORTED_CLIENT_VERSION:-0.0.0}
+      LATEST_CLIENT_VERSION: ${LATEST_CLIENT_VERSION:-0.0.0}
+      CLIENT_RELEASE_URL: ${CLIENT_RELEASE_URL:-https://github.com/A1VAR0W/ChatInk-Releases/releases}
     expose:
       - "3001"
     healthcheck:

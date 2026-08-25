@@ -14,6 +14,7 @@ import {
 } from '@pictochat/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { clientVersionSupported, unsupportedClientPayload } from './compatibility/client-version.js';
 import type { AppConfig } from './config.js';
 import { DomainError, type RoomService } from './domain/room-service.js';
 import type { MemoryRateLimiter } from './security/rate-limiter.js';
@@ -70,6 +71,25 @@ export function registerRoutes(app: FastifyInstance, services: Services): void {
   const { config, rooms, tokens, storage, uploads, antivirus } = services;
 
   app.get('/api/health', () => ({ status: 'ok', ephemeral: true, timestamp: Date.now() }));
+  app.get('/api/client-policy', () => ({
+    minimumSupportedVersion: config.minSupportedClientVersion,
+    latestVersion: config.latestClientVersion,
+    releaseUrl: config.clientReleaseUrl,
+  }));
+
+  app.addHook('onRequest', async (request, reply) => {
+    if (!request.url.startsWith('/api/') || request.url === '/api/health' || request.url === '/api/client-policy' || request.method === 'OPTIONS') return;
+    if (clientVersionSupported(request.headers['x-chatink-client-version'], {
+      minimumSupportedVersion: config.minSupportedClientVersion,
+      latestVersion: config.latestClientVersion,
+      releaseUrl: config.clientReleaseUrl,
+    })) return;
+    return reply.code(426).send(unsupportedClientPayload({
+      minimumSupportedVersion: config.minSupportedClientVersion,
+      latestVersion: config.latestClientVersion,
+      releaseUrl: config.clientReleaseUrl,
+    }));
+  });
 
   app.post('/api/sessions', async (request, reply): Promise<SessionResponse | ApiError> => {
     const parsed = createSessionSchema.safeParse(request.body);

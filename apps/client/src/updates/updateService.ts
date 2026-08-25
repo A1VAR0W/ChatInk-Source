@@ -77,10 +77,12 @@ export function assertTrustedRelease(release: UpdateRelease, channel: UpdateChan
   if (!expectedUrl(release.releaseUrl, 'github.com', `${repositoryPath}/releases/tag/${tag}`)) {
     throw new UpdateCheckError('untrusted-release');
   }
-  if (!expectedUrl(release.platforms.android.downloadUrl, 'github.com', `${repositoryPath}/releases/download/${tag}/ChatInk-${version}.apk`)) {
+  const preproductionAndroidAsset = expectedUrl(release.platforms.android.downloadUrl, 'chat-ink.tail552c89.ts.net', `/preproduction-builds/ChatInk-${version}.apk`);
+  const preproductionIosAsset = expectedUrl(release.platforms.ios.downloadUrl, 'chat-ink.tail552c89.ts.net', `/preproduction-builds/ChatInk-${version}.ipa`);
+  if (!(channel === 'preproduction' && preproductionAndroidAsset) && !expectedUrl(release.platforms.android.downloadUrl, 'github.com', `${repositoryPath}/releases/download/${tag}/ChatInk-${version}.apk`)) {
     throw new UpdateCheckError('untrusted-release');
   }
-  if (!expectedUrl(release.platforms.ios.downloadUrl, 'github.com', `${repositoryPath}/releases/download/${tag}/ChatInk-${version}.ipa`)) {
+  if (!(channel === 'preproduction' && preproductionIosAsset) && !expectedUrl(release.platforms.ios.downloadUrl, 'github.com', `${repositoryPath}/releases/download/${tag}/ChatInk-${version}.ipa`)) {
     throw new UpdateCheckError('untrusted-release');
   }
   const trustedIosSource = channel === 'preproduction'
@@ -94,9 +96,10 @@ export function assertTrustedRelease(release: UpdateRelease, channel: UpdateChan
 export function decideUpdate(manifest: LatestUpdateManifest, installed: InstalledVersion): UpdateDecision {
   if (manifest.release === null) return { kind: 'empty' };
   assertTrustedRelease(manifest.release, manifest.channel);
-  if (compareVersions(manifest.release.version, installed.version) <= 0) return { kind: 'current' };
   const mandatory = manifest.release.mandatory
     || (manifest.release.minimumSupportedVersion !== null && compareVersions(installed.version, manifest.release.minimumSupportedVersion) < 0);
+  if (mandatory) return { kind: 'available', release: manifest.release, mandatory: true };
+  if (compareVersions(manifest.release.version, installed.version) <= 0) return { kind: 'current' };
   return { kind: 'available', release: manifest.release, mandatory };
 }
 

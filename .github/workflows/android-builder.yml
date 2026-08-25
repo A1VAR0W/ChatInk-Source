@@ -128,11 +128,22 @@ jobs:
 
       - name: Create and sync Capacitor Android project
         working-directory: apps/client
+        env:
+          CHATINK_BUILD_CHANNEL: ${{ inputs.target_environment || 'preproduction' }}
         run: |
           npx cap add android
           node ../../scripts/native/configure-projects.mjs
           npm run assets:generate:android
           npx cap sync android
+
+      - name: Verify Android native identity matches channel
+        shell: bash
+        env:
+          CHATINK_BUILD_CHANNEL: ${{ inputs.target_environment || 'preproduction' }}
+        run: |
+          set -euo pipefail
+          expected_id="$(node --input-type=module -e 'import { appForChannel } from "./scripts/release/release-config.mjs"; process.stdout.write(appForChannel(process.env.CHATINK_BUILD_CHANNEL).bundleIdentifier)')"
+          grep -Fq "applicationId \"${expected_id}\"" apps/client/android/app/build.gradle
 
       - name: Make Gradle wrapper executable
         working-directory: apps/client/android
@@ -261,6 +272,39 @@ jobs:
           "$zipalign_path" -c -P 16 -v 4 "$signed_apk"
           "$apksigner_path" verify --verbose --print-certs "$signed_apk"
           sha256sum "$signed_apk" > "$signed_apk.sha256"
+
+      - name: Enforce Android release security policy
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          signed_apk="ChatInk-${RELEASE_VERSION}.apk"
+          build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          aapt_path="$build_tools_dir/aapt"
+          test -x "$aapt_path"
+
+          badging="$RUNNER_TEMP/apk-badging.txt"
+          xmltree="$RUNNER_TEMP/apk-manifest.txt"
+          resources="$RUNNER_TEMP/apk-resources.txt"
+          "$aapt_path" dump badging "$signed_apk" > "$badging"
+          "$aapt_path" dump xmltree "$signed_apk" AndroidManifest.xml > "$xmltree"
+          "$aapt_path" dump resources "$signed_apk" > "$resources"
+
+          grep -Fq "targetSdkVersion:'36'" "$badging"
+          grep -E 'android:usesCleartextTraffic.*0x0' "$xmltree"
+          grep -E 'android:allowBackup.*0x0' "$xmltree"
+          grep -Fq 'network_security_config' "$resources"
+
+          if grep -Eq "uses-permission: name='android.permission.(REQUEST_INSTALL_PACKAGES|QUERY_ALL_PACKAGES|SYSTEM_ALERT_WINDOW|BIND_ACCESSIBILITY_SERVICE)'" "$badging"; then
+            echo 'El APK declara un permiso sensible no autorizado para esta aplicación.' >&2
+            exit 1
+          fi
+
+          if grep -Fq 'android:debuggable(0x0101000f)=(type 0x12)0xffffffff' "$xmltree"; then
+            echo 'El APK release no puede ser depurable.' >&2
+            exit 1
+          fi
 
       - name: Verify app bundle signature and contents
         shell: bash
