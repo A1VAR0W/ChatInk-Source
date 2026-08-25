@@ -37,6 +37,53 @@ async function configureAndroidSecurity(androidDirectory) {
   await writeFile(join(xmlDirectory, 'data_extraction_rules.xml'), `<?xml version="1.0" encoding="utf-8"?>\n<data-extraction-rules>\n  <cloud-backup disableIfNoEncryptionCapabilities="true">\n    <exclude domain="root" path="." />\n  </cloud-backup>\n  <device-transfer>\n    <exclude domain="root" path="." />\n  </device-transfer>\n</data-extraction-rules>\n`, 'utf8');
 }
 
+async function configureAndroidWindowAppearance(androidDirectory) {
+  const resourcesDirectory = join(androidDirectory, 'app', 'src', 'main', 'res');
+  const stylesPath = join(resourcesDirectory, 'values', 'styles.xml');
+  if (!(await pathExists(stylesPath))) return;
+
+  let styles = await readFile(stylesPath, 'utf8');
+  styles = replaceRequired(
+    styles,
+    /<style name="AppTheme\.NoActionBar"[\s\S]*?<\/style>/,
+    `<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/chatink_window_background</item>
+        <item name="android:navigationBarColor">@color/chatink_window_background</item>
+        <item name="android:statusBarColor">@color/chatink_window_background</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>`,
+    'tema Android sin barra de acción',
+  );
+  await writeFile(stylesPath, styles, 'utf8');
+
+  const nightValuesDirectory = join(resourcesDirectory, 'values-night');
+  await mkdir(nightValuesDirectory, { recursive: true });
+  await writeFile(join(resourcesDirectory, 'values', 'colors.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#6C5CE7</color>
+    <color name="colorPrimaryDark">#5546CB</color>
+    <color name="colorAccent">#6C5CE7</color>
+    <color name="chatink_window_background">#F3F1FB</color>
+</resources>
+`, 'utf8');
+  await writeFile(join(nightValuesDirectory, 'colors.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="chatink_window_background">#11101E</color>
+</resources>
+`, 'utf8');
+  await writeFile(join(nightValuesDirectory, 'styles.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme.NoActionBar">
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
+`, 'utf8');
+}
+
 function parseVersion(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
   if (match === null) throw new Error(`La versión de package.json no es SemVer estable: ${version}`);
@@ -80,6 +127,7 @@ async function configureAndroid(version, buildNumber, app) {
   gradle = replaceRequired(gradle, /versionName\s+"[^"]+"/, `versionName "${version}"`, 'versionName Android');
   await writeFile(gradlePath, gradle, 'utf8');
   await configureAndroidSecurity(androidDirectory);
+  await configureAndroidWindowAppearance(androidDirectory);
 
   const stringsPath = join(androidDirectory, 'app', 'src', 'main', 'res', 'values', 'strings.xml');
   if (await pathExists(stringsPath)) {
