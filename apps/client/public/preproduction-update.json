@@ -4,21 +4,21 @@
   "release": {
     "tag": "v0.2.0",
     "version": "0.2.0",
-    "versionCode": 4001,
-    "publishedAt": "2026-08-25T17:26:23.624Z",
+    "versionCode": 4002,
+    "publishedAt": "2026-08-25T17:39:00.000Z",
     "minimumSupportedVersion": "0.2.0",
     "mandatory": true,
     "notes": [
       "Candidato 0.2.0 de preproducción.",
-      "Evita el zoom automático al tocar el nombre de sala y conserva el redimensionado nativo del teclado.",
+      "El teclado Android usa el redimensionado y la transición nativos, sin un recuadro oscuro al enfocar un campo.",
       "Actualización obligatoria para las builds de preproducción antiguas."
     ],
     "releaseUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json",
     "platforms": {
       "android": {
         "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.apk",
-        "sha256": "668fda93c66149caf5d72db3dbd072fefa73b6537e85e7d0aa32f3ad21656c46",
-        "size": 4700381
+        "sha256": "dbf1dd16c9c8371854d55f4bfac9d81b1bf024d667ac4b0762f40c6e425628c7",
+        "size": 4704477
       },
       "ios": {
         "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
