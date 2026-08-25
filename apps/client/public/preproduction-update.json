@@ -5,7 +5,7 @@
     "tag": "v0.2.0",
     "version": "0.2.0",
     "versionCode": 4002,
-    "publishedAt": "2026-08-25T17:39:00.000Z",
+    "publishedAt": "2026-08-25T17:43:00.000Z",
     "minimumSupportedVersion": "0.2.0",
     "mandatory": true,
     "notes": [
@@ -22,8 +22,8 @@
       },
       "ios": {
         "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
-        "sha256": "5fa6a22baf1c3d83f776dd32897c5115c43a52aebb6c994d94709ce59a3a26da",
-        "size": 2573906,
+        "sha256": "57aa55a20b86c3e8204cd561b09295089f0a97c14e1117ed983b18838206998f",
+        "size": 2573890,
         "sourceUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json"
       }
     }
