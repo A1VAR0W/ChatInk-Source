@@ -10,17 +10,17 @@
       "subtitle": "Chat efímero de texto, dibujo y archivos.",
       "localizedDescription": "Build privada de preproducción 0.2.0.",
       "version": "0.2.0",
-      "versionDate": "2026-08-25T16:18:15.729Z",
-      "versionDescription": "Usa el redimensionado nativo del teclado y evita el desplazamiento horizontal del chat.",
+      "versionDate": "2026-08-25T17:26:23.624Z",
+      "versionDescription": "Evita el zoom automático al escribir el nombre de sala y conserva el layout estable del teclado.",
       "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
-      "size": 2573751,
+      "size": 2573906,
       "versions": [
         {
           "version": "0.2.0",
-          "date": "2026-08-25T16:18:15.729Z",
+          "date": "2026-08-25T17:26:23.624Z",
           "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
-          "localizedDescription": "Usa el redimensionado nativo del teclado y evita el desplazamiento horizontal del chat.",
-          "size": 2573751
+          "localizedDescription": "Evita el zoom automático al escribir el nombre de sala y conserva el layout estable del teclado.",
+          "size": 2573906
         },
         {
           "version": "0.1.9",
