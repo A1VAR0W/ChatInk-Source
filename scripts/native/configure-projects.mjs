@@ -45,6 +45,20 @@ async function configureAndroidWindowAppearance(androidDirectory) {
   let styles = await readFile(stylesPath, 'utf8');
   styles = replaceRequired(
     styles,
+    /<style name="AppTheme" parent="[^"]+">[\s\S]*?<\/style>/,
+    `<style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/chatink_window_background</item>
+        <item name="android:navigationBarColor">@color/chatink_window_background</item>
+        <item name="android:statusBarColor">@color/chatink_window_background</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>`,
+    'tema Android principal sin barra de acción',
+  );
+  styles = replaceRequired(
+    styles,
     /<style name="AppTheme\.NoActionBar"[\s\S]*?<\/style>/,
     `<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
