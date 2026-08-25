@@ -45,6 +45,9 @@ describe('MessageList', () => {
     expect(styles).toMatch(/\.message-text__content\s*\{[^}]*overflow-wrap: break-word;[^}]*word-break: normal;[^}]*hyphens: none;[^}]*white-space: pre-wrap/);
     expect(styles).not.toMatch(/\.message-text__content\s*\{[^}]*word-break: break-all/);
     expect(styles).not.toMatch(/\.message-text__content\s*\{[^}]*overflow-wrap: anywhere/);
+    expect(styles).toMatch(/html, body, #root, ion-app\s*\{[^}]*overflow-x: hidden/);
+    expect(styles).toMatch(/\.history\s*\{[^}]*overflow-x: hidden/);
+    expect(styles).toMatch(/\.message-list\s*\{[^}]*max-width: 100%;[^}]*overflow-x: hidden/);
   });
 
   it('agrupa mensajes consecutivos del mismo autor dentro de la ventana corta', () => {

@@ -62,7 +62,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root, ion-app { height: 100%; min-height: 0; margin: 0; }
+html, body, #root, ion-app { width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; overflow-x: hidden; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 button, input, textarea { font: inherit; }
 button { color: inherit; }
@@ -121,7 +121,7 @@ code { font-family: "SFMono-Regular", Consolas, monospace; }
 .brand--compact .brand__mark { width: 34px; height: 34px; border-radius: 10px; }
 .eyebrow { color: var(--primary); font-size: 12px; letter-spacing: .17em; font-weight: 850; }
 
-.entry-page { height: var(--chatink-visible-viewport-height, 100dvh); min-height: 0; overflow-x: hidden; overflow-y: auto; position: relative; display: flex; align-items: center; justify-content: center; padding: 110px 24px 70px; background: radial-gradient(circle at 15% 20%, var(--primary-soft), transparent 32%), radial-gradient(circle at 88% 77%, var(--green-soft), transparent 30%), var(--bg); }
+.entry-page { width: 100%; max-width: 100%; height: 100dvh; min-height: 0; overflow-x: hidden; overflow-y: auto; position: relative; display: flex; align-items: center; justify-content: center; padding: 110px 24px 70px; background: radial-gradient(circle at 15% 20%, var(--primary-soft), transparent 32%), radial-gradient(circle at 88% 77%, var(--green-soft), transparent 30%), var(--bg); }
 .entry-page::before { content: ""; position: absolute; inset: 0; opacity: .19; pointer-events: none; background-image: radial-gradient(var(--ink-muted) .7px, transparent .7px); background-size: 20px 20px; }
 .entry-top { position: absolute; top: max(24px, env(safe-area-inset-top)); left: 7vw; right: 7vw; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
 .entry-card { position: relative; z-index: 1; width: min(670px, 100%); padding: 54px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: var(--shadow-lg); }
@@ -141,14 +141,14 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .privacy-note strong { color: var(--ink); }
 .entry-doodle { position: absolute; right: 6vw; bottom: 6vh; color: var(--primary); font-size: 60px; display: flex; gap: 26px; transform: rotate(-7deg); opacity: .35; }
 
-.app-header, .room-header { min-height: 72px; padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 18px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 20; }
+.app-header, .room-header { width: 100%; max-width: 100%; min-width: 0; min-height: 72px; padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 18px; overflow: hidden; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 20; }
 .header-user { display: flex; gap: 9px; align-items: center; margin-left: auto; }
 .header-user > span:last-child { display: flex; flex-direction: column; }
 .header-user small { color: var(--ink-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .avatar { width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden; border: 2px solid color-mix(in srgb, #fff 72%, transparent); border-radius: 50%; background: linear-gradient(145deg, hsl(var(--avatar-hue) 72% 62%), hsl(calc(var(--avatar-hue) + 34) 58% 38%)); box-shadow: 0 2px 7px rgb(23 22 43 / 16%); color: #fff; font-size: 12px; font-weight: 850; letter-spacing: .02em; flex: none; }
 .avatar--message { width: 30px; height: 30px; font-size: 10px; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
-.lobby-page { height: 100%; overflow-x: hidden; overflow-y: auto; }
+.lobby-page { width: 100%; max-width: 100%; height: 100%; min-width: 0; overflow-x: hidden; overflow-y: auto; }
 .lobby-content { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 68px 0 80px; }
 .lobby-intro { text-align: center; max-width: 650px; margin: 0 auto 38px; }
 .lobby-intro h1 { margin: 10px 0; font-size: clamp(34px, 5vw, 53px); letter-spacing: -.055em; }
@@ -197,7 +197,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .room-card span { color: var(--ink-muted); font-size: 12px; }
 .room-card code { color: var(--primary); font-weight: 750; letter-spacing: .08em; }
 
-.room-page { height: var(--chatink-visible-viewport-height, 100dvh); min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.room-page { width: 100%; max-width: 100%; height: 100dvh; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .room-header { position: relative; flex: none; padding-top: max(12px, env(safe-area-inset-top)); }
 .back-button { display: none; }
 .room-identity { display: flex; flex-direction: column; min-width: 0; }
@@ -215,13 +215,13 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .offline-banner { text-align: center; padding: 7px; background: #fff4cc; color: #725700; font-size: 12px; font-weight: 700; }
 :root[data-theme="dark"] .offline-banner { background: #4b401b; color: #ffe78e; }
 .room-alert { position: absolute; z-index: 35; top: 82px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); box-shadow: var(--shadow-sm); }
-.room-layout { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; }
-.chat-area { min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
-.history { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.room-layout { width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; }
+.chat-area { width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.history { flex: 1; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .empty-state { height: 100%; min-height: 260px; display: grid; place-content: center; text-align: center; color: var(--ink-muted); padding: 30px; }
 .empty-state > span { width: 72px; height: 72px; display: grid; place-items: center; margin: 0 auto 18px; border-radius: 23px; background: var(--primary-soft); color: var(--primary); font-size: 31px; transform: rotate(-5deg); }
 .empty-state h2 { color: var(--ink); margin-bottom: 7px; }
-.message-list { width: min(850px, calc(100% - 40px)); min-height: 100%; margin: 0 auto; padding: 30px 0; }
+.message-list { width: min(850px, calc(100% - 40px)); max-width: 100%; min-width: 0; min-height: 100%; margin: 0 auto; padding: 30px 0; overflow-x: hidden; }
 .message-group { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin: 0 0 14px; scroll-margin-block: 40vh; }
 .message-group--own { align-items: flex-end; }
 .message-group__items { display: flex; flex-direction: column; align-items: flex-start; width: 100%; gap: 2px; max-width: 100%; }
@@ -273,7 +273,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .typing-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: typing-dot 720ms var(--ease-in-out) infinite alternate; }
 .typing-dots i:nth-child(2) { animation-delay: 120ms; }
 .typing-dots i:nth-child(3) { animation-delay: 240ms; }
-.composer { flex: none; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(14px) saturate(130%); }
+.composer { width: 100%; max-width: 100%; min-width: 0; flex: none; overflow-x: hidden; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(14px) saturate(130%); }
 .reply-context { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(900px, 100%); margin: 0 auto; padding: 8px 20px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--primary-soft) 55%, transparent); }
 .reply-context > div { min-width: 0; }
 .reply-context span { color: var(--primary); font-size: 11px; font-weight: 750; }

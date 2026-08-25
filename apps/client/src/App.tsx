@@ -5,7 +5,6 @@ import { EntryPage } from './pages/EntryPage';
 import { SessionProvider, useSession } from './state/session';
 import { MessageTextSizeProvider } from './state/messageTextSize';
 import { UpdateProvider } from './updates/UpdateProvider';
-import { useAndroidVisibleViewport } from './platform/useAndroidVisibleViewport';
 
 const LobbyPage = lazy(() => import('./pages/LobbyPage').then((module) => ({ default: module.LobbyPage })));
 const RoomPage = lazy(() => import('./pages/RoomPage').then((module) => ({ default: module.RoomPage })));
@@ -16,7 +15,6 @@ function ProtectedLobby() {
 }
 
 export function App() {
-  useAndroidVisibleViewport();
   return (
     <IonApp>
       <UpdateProvider>
