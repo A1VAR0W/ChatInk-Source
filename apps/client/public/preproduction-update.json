@@ -2,28 +2,28 @@
   "schemaVersion": 1,
   "channel": "preproduction",
   "release": {
-    "tag": "v0.1.9",
-    "version": "0.1.9",
-    "versionCode": 2019,
-    "publishedAt": "2026-08-22T18:45:04.000Z",
-    "minimumSupportedVersion": "0.1.9",
+    "tag": "v0.2.0",
+    "version": "0.2.0",
+    "versionCode": 4001,
+    "publishedAt": "2026-08-25T16:18:15.729Z",
+    "minimumSupportedVersion": "0.2.0",
     "mandatory": true,
     "notes": [
-      "Candidato 0.1.9 de preproducción.",
-      "Corrige el espacio duplicado del teclado en Android 10/11 y conserva el comportamiento edge-to-edge en Android moderno.",
+      "Candidato 0.2.0 de preproducción.",
+      "El teclado usa el redimensionado nativo y el chat ya no permite desplazamiento horizontal al dibujar, enviar o mover la pantalla.",
       "Actualización obligatoria para las builds de preproducción antiguas."
     ],
     "releaseUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json",
     "platforms": {
       "android": {
-        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.1.9.apk",
-        "sha256": "4fe3b4884c165fe1e4200208ef6a53c04c099d074802edd4435f649a64f28bb2",
+        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.apk",
+        "sha256": "d80ffcc6910ecd9f0b93cd1e25d195b35223e43703339492306087c3dd60c821",
         "size": 4700381
       },
       "ios": {
-        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.1.9.ipa",
-        "sha256": "fff00b4e8b2e0065acb93266690fa57a7708d2a782e78ea1b009f8792feabffb",
-        "size": 2573789,
+        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
+        "sha256": "04b3998f7bf31b21d8dcaeadc0b8d8fa4ff93bd75ce97bbd16d86d4d44fc7361",
+        "size": 2573751,
         "sourceUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json"
       }
     }

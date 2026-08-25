@@ -8,13 +8,20 @@
       "bundleIdentifier": "com.gmail.alvaroaguileracuesta.preproduction",
       "developerName": "A1VAR0W",
       "subtitle": "Chat efímero de texto, dibujo y archivos.",
-      "localizedDescription": "Build privada de preproducción 0.1.9.",
-      "version": "0.1.9",
-      "versionDate": "2026-08-22T18:45:04.000Z",
-      "versionDescription": "Corrige el espacio duplicado del teclado en Android 10/11.",
-      "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.1.9.ipa",
-      "size": 2573789,
+      "localizedDescription": "Build privada de preproducción 0.2.0.",
+      "version": "0.2.0",
+      "versionDate": "2026-08-25T16:18:15.729Z",
+      "versionDescription": "Usa el redimensionado nativo del teclado y evita el desplazamiento horizontal del chat.",
+      "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
+      "size": 2573751,
       "versions": [
+        {
+          "version": "0.2.0",
+          "date": "2026-08-25T16:18:15.729Z",
+          "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
+          "localizedDescription": "Usa el redimensionado nativo del teclado y evita el desplazamiento horizontal del chat.",
+          "size": 2573751
+        },
         {
           "version": "0.1.9",
           "date": "2026-08-22T18:45:04.000Z",
