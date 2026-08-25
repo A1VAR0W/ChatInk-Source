@@ -48,6 +48,7 @@ describe('MessageList', () => {
     expect(styles).toMatch(/html, body, #root, ion-app\s*\{[^}]*overflow-x: hidden/);
     expect(styles).toMatch(/\.history\s*\{[^}]*overflow-x: hidden/);
     expect(styles).toMatch(/\.message-list\s*\{[^}]*max-width: 100%;[^}]*overflow-x: hidden/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)\s*\{\s*input:not\(\[type="range"\]\):not\(\[type="radio"\]\):not\(\[type="checkbox"\]\), textarea\s*\{ font-size: 16px/);
   });
 
   it('agrupa mensajes consecutivos del mismo autor dentro de la ventana corta', () => {
