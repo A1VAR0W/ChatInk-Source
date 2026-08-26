@@ -15,18 +15,26 @@ interface RoomClaims extends JWTPayload {
   role: 'creator' | 'member';
 }
 
+interface AccountClaims extends JWTPayload {
+  kind: 'account';
+  uid: string;
+  username: string;
+}
+
 export class TokenError extends Error {}
 
 export class TokenService {
   readonly #secret: Uint8Array;
   readonly #sessionTtlMs: number;
   readonly #roomTtlMs: number;
+  readonly #accountTtlMs: number;
   readonly #issuer = 'doodledrop-server';
 
-  constructor(config: Pick<AppConfig, 'tokenSecret' | 'sessionTtlMs' | 'roomTokenTtlMs'>) {
+  constructor(config: Pick<AppConfig, 'tokenSecret' | 'sessionTtlMs' | 'roomTokenTtlMs' | 'accountTokenTtlMs'>) {
     this.#secret = new TextEncoder().encode(config.tokenSecret);
     this.#sessionTtlMs = config.sessionTtlMs;
     this.#roomTtlMs = config.roomTokenTtlMs;
+    this.#accountTtlMs = config.accountTokenTtlMs;
   }
 
   async createSession(alias: string): Promise<{ sessionId: string; token: string; expiresAt: number }> {
@@ -56,6 +64,35 @@ export class TokenService {
     } catch (error) {
       if (error instanceof TokenError) throw error;
       throw new TokenError('Token de sesion no valido');
+    }
+  }
+
+  async createAccountToken(userId: string, username: string): Promise<{ token: string; expiresAt: number }> {
+    const expiresAt = Date.now() + this.#accountTtlMs;
+    const token = await new SignJWT({ kind: 'account', uid: userId, username })
+      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+      .setIssuer(this.#issuer)
+      .setAudience('chatink-account')
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(expiresAt / 1000))
+      .setJti(randomUUID())
+      .sign(this.#secret);
+    return { token, expiresAt };
+  }
+
+  async verifyAccount(token: string): Promise<AccountClaims> {
+    try {
+      const { payload } = await jwtVerify(token, this.#secret, {
+        issuer: this.#issuer,
+        audience: 'chatink-account',
+      });
+      if (payload.kind !== 'account' || typeof payload.uid !== 'string' || typeof payload.username !== 'string') {
+        throw new TokenError('Token de cuenta no valido');
+      }
+      return payload as AccountClaims;
+    } catch (error) {
+      if (error instanceof TokenError) throw error;
+      throw new TokenError('Token de cuenta no valido');
     }
   }
 

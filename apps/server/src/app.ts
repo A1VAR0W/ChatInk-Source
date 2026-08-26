@@ -7,6 +7,8 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { Server } from 'socket.io';
 import type { AppConfig } from './config.js';
+import { Database } from './database/database.js';
+import { AccountRepository } from './domain/account-repository.js';
 import { RoomService } from './domain/room-service.js';
 import { registerSocketServer, type RealtimeServer } from './realtime/register-socket.js';
 import { registerErrorHandler, registerRoutes } from './routes.js';
@@ -21,6 +23,7 @@ export interface PictoApplication {
   rooms: RoomService;
   tokens: TokenService;
   storage: TempStorage;
+  database?: Database;
   startCleanup: () => void;
   shutdown: () => Promise<void>;
 }
@@ -54,6 +57,9 @@ export async function buildApplication(config: AppConfig): Promise<PictoApplicat
 
   const storage = new TempStorage(config.tempRoot);
   await storage.initialize();
+  const database = config.databaseUrl === undefined ? undefined : new Database(config.databaseUrl);
+  await database?.initialize();
+  const accounts = database === undefined ? undefined : new AccountRepository(database);
   const tokens = new TokenService(config);
   const rooms = new RoomService(config, storage);
   const uploads = new MemoryRateLimiter();
@@ -79,7 +85,7 @@ export async function buildApplication(config: AppConfig): Promise<PictoApplicat
       if (origin === undefined || config.allowedOrigins.includes(origin)) callback(null, true);
       else callback(new Error('Origen no permitido'), false);
     },
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Token', 'X-ChatInk-Client-Version', 'X-ChatInk-Client-Build', 'X-ChatInk-Client-Platform', 'X-ChatInk-Client-Channel'],
     credentials: false,
     maxAge: 600,
@@ -96,7 +102,16 @@ export async function buildApplication(config: AppConfig): Promise<PictoApplicat
   });
 
   registerErrorHandler(app);
-  registerRoutes(app, { config, rooms, tokens, storage, uploads, antivirus });
+  registerRoutes(app, {
+    config,
+    rooms,
+    tokens,
+    storage,
+    uploads,
+    antivirus,
+    ...(accounts === undefined ? {} : { accounts }),
+    ...(database === undefined ? {} : { database }),
+  });
 
   if (config.serveClient && existsSync(config.clientDist)) {
     await app.register(fastifyStatic, { root: config.clientDist, prefix: '/' });
@@ -140,7 +155,8 @@ export async function buildApplication(config: AppConfig): Promise<PictoApplicat
     await io.close();
     if (app.server.listening) await app.close();
     await storage.shutdown();
+    await database?.close();
   };
 
-  return { app, io, rooms, tokens, storage, startCleanup, shutdown };
+  return { app, io, rooms, tokens, storage, ...(database === undefined ? {} : { database }), startCleanup, shutdown };
 }

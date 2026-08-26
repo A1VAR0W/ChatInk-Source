@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
@@ -14,6 +15,9 @@ const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().min(0).max(65535).default(3001),
   TOKEN_SECRET: z.string().min(32).default('development-only-secret-change-me-now'),
+  TOKEN_SECRET_FILE: z.string().min(1).optional(),
+  DATABASE_URL: z.string().min(1).optional(),
+  DATABASE_URL_FILE: z.string().min(1).optional(),
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173,http://localhost:3001'),
   TRUST_PROXY: booleanFromString,
   SERVE_CLIENT: booleanFromString,
@@ -21,6 +25,7 @@ const envSchema = z.object({
   TEMP_ROOT: z.string().optional(),
   SESSION_TTL_MS: positiveInteger(43_200_000),
   ROOM_TOKEN_TTL_MS: positiveInteger(86_400_000),
+  ACCOUNT_TOKEN_TTL_MS: positiveInteger(2_592_000_000),
   ROOM_EMPTY_TTL_MS: positiveInteger(300_000),
   CLEANUP_INTERVAL_MS: positiveInteger(60_000),
   ORPHAN_MAX_AGE_MS: positiveInteger(3_600_000),
@@ -44,6 +49,7 @@ export interface AppConfig {
   host: string;
   port: number;
   tokenSecret: string;
+  databaseUrl?: string;
   allowedOrigins: string[];
   trustProxy: boolean;
   serveClient: boolean;
@@ -51,6 +57,7 @@ export interface AppConfig {
   tempRoot: string;
   sessionTtlMs: number;
   roomTokenTtlMs: number;
+  accountTokenTtlMs: number;
   roomEmptyTtlMs: number;
   cleanupIntervalMs: number;
   orphanMaxAgeMs: number;
@@ -71,13 +78,22 @@ export interface AppConfig {
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppConfig {
   const env = envSchema.parse(environment);
+  const tokenSecret = env.TOKEN_SECRET_FILE === undefined
+    ? env.TOKEN_SECRET
+    : readFileSync(env.TOKEN_SECRET_FILE, 'utf8').trim();
+  const databaseUrl = env.DATABASE_URL_FILE === undefined
+    ? env.DATABASE_URL
+    : readFileSync(env.DATABASE_URL_FILE, 'utf8').trim();
   const insecureSecrets = new Set([
     'development-only-secret-change-me-now',
     'local-docker-secret-change-before-production-123',
     'replace-with-at-least-32-random-characters',
     'replace-with-a-random-secret-of-at-least-32-characters',
   ]);
-  if (env.NODE_ENV === 'production' && insecureSecrets.has(env.TOKEN_SECRET)) {
+  if (tokenSecret.length < 32) {
+    throw new Error('TOKEN_SECRET debe tener al menos 32 caracteres');
+  }
+  if (env.NODE_ENV === 'production' && insecureSecrets.has(tokenSecret)) {
     throw new Error('TOKEN_SECRET debe configurarse de forma segura en produccion');
   }
 
@@ -85,7 +101,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     nodeEnv: env.NODE_ENV,
     host: env.HOST,
     port: env.PORT,
-    tokenSecret: env.TOKEN_SECRET,
+    tokenSecret,
+    ...(databaseUrl === undefined ? {} : { databaseUrl }),
     allowedOrigins: env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean),
     trustProxy: env.TRUST_PROXY,
     serveClient: env.SERVE_CLIENT,
@@ -93,6 +110,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     tempRoot: resolve(env.TEMP_ROOT ?? join(tmpdir(), 'pictochat-mvp')),
     sessionTtlMs: env.SESSION_TTL_MS,
     roomTokenTtlMs: env.ROOM_TOKEN_TTL_MS,
+    accountTokenTtlMs: env.ACCOUNT_TOKEN_TTL_MS,
     roomEmptyTtlMs: env.ROOM_EMPTY_TTL_MS,
     cleanupIntervalMs: env.CLEANUP_INTERVAL_MS,
     orphanMaxAgeMs: env.ORPHAN_MAX_AGE_MS,

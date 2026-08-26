@@ -16,6 +16,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { clientVersionSupported, unsupportedClientPayload } from './compatibility/client-version.js';
 import type { AppConfig } from './config.js';
+import type { Database } from './database/database.js';
+import { AccountError, type AccountRepository } from './domain/account-repository.js';
 import { DomainError, type RoomService } from './domain/room-service.js';
 import type { MemoryRateLimiter } from './security/rate-limiter.js';
 import { bearerToken, TokenError, type TokenService } from './security/tokens.js';
@@ -24,6 +26,23 @@ import { contentDisposition, safeDownloadName, type TempStorage } from './storag
 import type { AntivirusScanner } from './storage/virus-scanner.js';
 
 const createSessionSchema = z.object({ alias: aliasSchema });
+const usernameSchema = z.string().trim().min(2).max(24)
+  .regex(/^[\p{L}\p{N}._-]+$/u, 'Usa letras, numeros, punto, guion o guion bajo');
+const accountCredentialsSchema = z.object({
+  username: usernameSchema,
+  password: z.string().min(10).max(128),
+}).strict();
+const settingsSchema = z.object({
+  theme: z.enum(['system', 'light', 'dark']).optional(),
+  fontScale: z.number().min(0.8).max(2).optional(),
+  reducedMotion: z.boolean().optional(),
+  highContrast: z.boolean().optional(),
+  notifyMessages: z.boolean().optional(),
+  notifyFriendRequests: z.boolean().optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, 'Incluye al menos un ajuste');
+const friendRequestSchema = z.object({ username: usernameSchema }).strict();
+const friendTierSchema = z.object({ tier: z.enum(['normal', 'close']) }).strict();
+const uuidParamSchema = z.object({ id: z.uuid() });
 const routeRoomCodeSchema = z.object({ code: roomCodeSchema });
 const routeRoomFileSchema = z.object({ roomId: z.uuid(), fileId: z.uuid() });
 
@@ -42,6 +61,8 @@ interface Services {
   storage: TempStorage;
   uploads: MemoryRateLimiter;
   antivirus: AntivirusScanner;
+  accounts?: AccountRepository;
+  database?: Database;
 }
 
 function validationError(error: z.ZodError): ApiError {
@@ -67,10 +88,17 @@ async function authenticateRoom(request: FastifyRequest, tokens: TokenService, r
   return claims;
 }
 
-export function registerRoutes(app: FastifyInstance, services: Services): void {
-  const { config, rooms, tokens, storage, uploads, antivirus } = services;
+async function authenticateAccount(request: FastifyRequest, tokens: TokenService) {
+  return tokens.verifyAccount(bearerToken(request.headers.authorization));
+}
 
-  app.get('/api/health', () => ({ status: 'ok', ephemeral: true, timestamp: Date.now() }));
+export function registerRoutes(app: FastifyInstance, services: Services): void {
+  const { config, rooms, tokens, storage, uploads, antivirus, accounts, database } = services;
+
+  app.get('/api/health', async () => {
+    await database?.ping();
+    return { status: 'ok', rooms: 'ephemeral', accounts: database === undefined ? 'disabled' : 'postgresql', timestamp: Date.now() };
+  });
   app.get('/api/client-policy', () => ({
     minimumSupportedVersion: config.minSupportedClientVersion,
     latestVersion: config.latestClientVersion,
@@ -96,6 +124,80 @@ export function registerRoutes(app: FastifyInstance, services: Services): void {
     if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
     const session = await tokens.createSession(parsed.data.alias);
     return { ...session, alias: parsed.data.alias };
+  });
+
+  app.post('/api/accounts/register', {
+    config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
+  }, async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const parsed = accountCredentialsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
+    const account = await accounts.register(parsed.data.username, parsed.data.password);
+    const authentication = await tokens.createAccountToken(account.id, account.username);
+    return reply.code(201).send({ account, ...authentication });
+  });
+
+  app.post('/api/accounts/login', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const parsed = accountCredentialsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
+    const account = await accounts.authenticate(parsed.data.username, parsed.data.password);
+    const authentication = await tokens.createAccountToken(account.id, account.username);
+    return { account, ...authentication };
+  });
+
+  app.get('/api/accounts/me', async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const claims = await authenticateAccount(request, tokens);
+    const [account, accountSettings] = await Promise.all([
+      accounts.findById(claims.uid),
+      accounts.getSettings(claims.uid),
+    ]);
+    return { account, settings: accountSettings };
+  });
+
+  app.patch('/api/accounts/settings', async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const claims = await authenticateAccount(request, tokens);
+    const parsed = settingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
+    return { settings: await accounts.updateSettings(claims.uid, parsed.data) };
+  });
+
+  app.get('/api/accounts/friends', async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const claims = await authenticateAccount(request, tokens);
+    return { friends: await accounts.listFriends(claims.uid) };
+  });
+
+  app.post('/api/accounts/friends/requests', async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const claims = await authenticateAccount(request, tokens);
+    const parsed = friendRequestSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
+    return reply.code(201).send({ friendship: await accounts.requestFriend(claims.uid, parsed.data.username) });
+  });
+
+  app.post('/api/accounts/friends/requests/:id/accept', async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const claims = await authenticateAccount(request, tokens);
+    const params = uuidParamSchema.safeParse(request.params);
+    if (!params.success) return reply.code(400).send(validationError(params.error));
+    await accounts.acceptFriend(claims.uid, params.data.id);
+    return reply.code(204).send();
+  });
+
+  app.patch('/api/accounts/friends/:id', async (request, reply) => {
+    if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
+    const claims = await authenticateAccount(request, tokens);
+    const params = uuidParamSchema.safeParse(request.params);
+    const body = friendTierSchema.safeParse(request.body);
+    if (!params.success) return reply.code(400).send(validationError(params.error));
+    if (!body.success) return reply.code(400).send(validationError(body.error));
+    await accounts.setFriendTier(claims.uid, params.data.id, body.data.tier);
+    return reply.code(204).send();
   });
 
   app.get('/api/rooms/public', () => ({ rooms: rooms.publicRooms() }));
@@ -191,6 +293,10 @@ export function registerErrorHandler(app: FastifyInstance): void {
       return;
     }
     if (error instanceof DomainError) {
+      void reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      return;
+    }
+    if (error instanceof AccountError) {
       void reply.code(error.statusCode).send({ error: error.message, code: error.code });
       return;
     }

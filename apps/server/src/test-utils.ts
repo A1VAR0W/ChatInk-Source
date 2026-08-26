@@ -16,6 +16,7 @@ export function testConfig(tempRoot: string, overrides: Partial<AppConfig> = {})
     tempRoot,
     sessionTtlMs: 60_000,
     roomTokenTtlMs: 60_000,
+    accountTokenTtlMs: 60_000,
     roomEmptyTtlMs: 300_000,
     cleanupIntervalMs: 60_000,
     orphanMaxAgeMs: 10,

@@ -1,6 +1,28 @@
 name: chatink-preproduction
 
 services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chatink_preproduction
+      POSTGRES_USER: chatink_pre
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+    secrets:
+      - database_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - app_internal
+
   app:
     build:
       context: ..
@@ -13,6 +35,9 @@ services:
     image: chatink-preproduction:local
     init: true
     restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
     read_only: true
     stop_grace_period: 20s
     tmpfs:
@@ -28,7 +53,8 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3001
-      TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET es obligatorio}
+      TOKEN_SECRET_FILE: /run/secrets/token_secret
+      DATABASE_URL_FILE: /run/secrets/database_url
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS es obligatorio}
       TRUST_PROXY: "true"
       SERVE_CLIENT: "true"
@@ -39,6 +65,9 @@ services:
       MIN_SUPPORTED_CLIENT_VERSION: ${MIN_SUPPORTED_CLIENT_VERSION:-0.0.0}
       LATEST_CLIENT_VERSION: ${LATEST_CLIENT_VERSION:-0.0.0}
       CLIENT_RELEASE_URL: ${CLIENT_RELEASE_URL:-https://github.com/A1VAR0W/Chat-Ink/releases}
+    secrets:
+      - token_secret
+      - database_url
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -62,3 +91,14 @@ networks:
   app_internal:
     internal: true
   edge:
+
+volumes:
+  postgres_data:
+
+secrets:
+  token_secret:
+    file: ${CHATINK_PREPRODUCTION_SECRETS_DIR:?CHATINK_PREPRODUCTION_SECRETS_DIR es obligatorio}/token_secret
+  database_password:
+    file: ${CHATINK_PREPRODUCTION_SECRETS_DIR:?CHATINK_PREPRODUCTION_SECRETS_DIR es obligatorio}/database_password
+  database_url:
+    file: ${CHATINK_PREPRODUCTION_SECRETS_DIR:?CHATINK_PREPRODUCTION_SECRETS_DIR es obligatorio}/database_url
