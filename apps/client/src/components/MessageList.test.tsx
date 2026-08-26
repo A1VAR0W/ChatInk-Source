@@ -38,6 +38,7 @@ describe('MessageList', () => {
     expect(content.map((element) => element.textContent)).toEqual([incoming.text, own.text]);
     expect(container.querySelector('.message:not(.message--own) .message-bubble')).not.toBeNull();
     expect(container.querySelector('.message--own .message-bubble')).not.toBeNull();
+    expect(container.querySelector('.message-bubble .message-time')).toBeNull();
     expect(container.querySelectorAll('wbr')).toHaveLength(0);
 
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');

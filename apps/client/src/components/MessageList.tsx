@@ -242,7 +242,6 @@ export function MessageList({
                           </button>
                         )}
                         <MessageContent message={message} roomToken={roomToken} />
-                        <time className="message-time">{message.pending ? 'Enviando…' : timeLabel(message.createdAt)}</time>
                       </div>
                       {!own && replyButton}
                     </div>

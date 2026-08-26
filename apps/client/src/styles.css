@@ -261,7 +261,6 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .message-text__content { margin: 0; overflow-wrap: break-word; word-break: normal; hyphens: none; white-space: pre-wrap; font-size: max(16px, var(--message-text-size)); line-height: var(--message-line-height); }
 .message-text__content--collapsed { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 7; }
 .message-text__toggle { margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font-size: 12px; font-weight: 800; }
-.message-time { display: block; padding: 0 13px 7px; color: var(--ink-muted); font-size: 9px; text-align: right; }
 .message-reply-action { width: 36px; height: 36px; min-height: 36px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--surface-raised); box-shadow: var(--shadow-sm); color: var(--primary); cursor: pointer; opacity: 0; transition: transform 140ms var(--ease-out), opacity 140ms ease, background 140ms ease; }
 .message-reply-action__incoming { transform: scaleX(-1); }
 .message-reply-action:focus-visible { opacity: 1; background: var(--surface-muted); }
