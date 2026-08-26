@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { aliasSchema } from '@pictochat/shared';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Brand } from '../components/Brand';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { api, entryApiError } from '../services/api';
 import { useSession } from '../state/session';
 
@@ -12,7 +11,7 @@ export function EntryPage() {
   const location = useLocation();
   const [alias, setAlias] = useState('');
   const [mode, setMode] = useState<'guest' | 'account'>('guest');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string>();
@@ -44,14 +43,14 @@ export function EntryPage() {
 
   const submitAccount = async (event: FormEvent) => {
     event.preventDefault();
-    if (username.trim().length < 2 || password.length < 10) {
-      setError('Introduce tu usuario y una contraseña de al menos 10 caracteres');
+    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || password.length < 10) {
+      setError('Introduce tu correo y una contraseña de al menos 10 caracteres');
       return;
     }
     setLoading(true);
     setError(undefined);
     try {
-      const authentication = await api.loginAccount({ username: username.trim(), password });
+      const authentication = await api.loginAccount({ email: email.trim(), password });
       const chatSession = await api.createSession(authentication.account.username);
       setAccountSession(chatSession, authentication, remember);
       void navigate(`/lobby${location.search}`, { replace: true });
@@ -64,7 +63,7 @@ export function EntryPage() {
 
   return (
     <main className="entry-page">
-      <div className="entry-top"><Brand /><ThemeToggle /></div>
+      <div className="entry-top"><Brand /></div>
       <section className="entry-card entry-card--access">
         <div className="eyebrow">TU ESPACIO, A TU MANERA</div>
         <h1>Entra, dibuja,<br /><span>déjalo ir.</span></h1>
@@ -82,8 +81,8 @@ export function EntryPage() {
           </form>
         ) : (
           <form className="access-form" onSubmit={(event) => void submitAccount(event)} noValidate>
-            <label htmlFor="username">Usuario</label>
-            <input id="username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" maxLength={24} placeholder="Tu nombre de usuario" />
+            <label htmlFor="email">Correo electrónico</label>
+            <input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" maxLength={254} placeholder="tu@correo.com" inputMode="email" />
             <label htmlFor="password">Contraseña</label>
             <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" maxLength={128} placeholder="Tu contraseña" />
             <label className="remember-choice"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span><strong>Recordarme en este dispositivo</strong><small>Entrarás directamente la próxima vez.</small></span></label>

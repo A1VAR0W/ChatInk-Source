@@ -151,19 +151,19 @@ export class AccountRepository {
     }
   }
 
-  async authenticate(username: string, password: string): Promise<AccountIdentity> {
+  async authenticate(email: string, password: string): Promise<AccountIdentity> {
     const result = await this.database.query<UserRow>(`
       SELECT id, username, email, password_hash, profile_photo_key, created_at
       FROM users
-      WHERE username_normalized = $1
-    `, [normalizeUsername(username)]);
+      WHERE email_normalized = $1
+    `, [normalizeEmail(email)]);
     const row = result.rows[0];
     if (row === undefined) {
       await argon2.hash(password, passwordHashOptions);
-      throw new AccountError('INVALID_CREDENTIALS', 'Usuario o contrasena incorrectos', 401);
+      throw new AccountError('INVALID_CREDENTIALS', 'Correo o contrasena incorrectos', 401);
     }
     if (!(await argon2.verify(row.password_hash, password))) {
-      throw new AccountError('INVALID_CREDENTIALS', 'Usuario o contrasena incorrectos', 401);
+      throw new AccountError('INVALID_CREDENTIALS', 'Correo o contrasena incorrectos', 401);
     }
     return accountIdentity(row);
   }

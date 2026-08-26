@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Brand } from '../components/Brand';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { api, entryApiError } from '../services/api';
 import { useSession } from '../state/session';
 
@@ -42,7 +41,7 @@ export function RegisterPage() {
 
   return (
     <main className="entry-page register-page">
-      <div className="entry-top"><Brand /><ThemeToggle /></div>
+      <div className="entry-top"><Brand /></div>
       <section className="entry-card register-card">
         <Link className="back-link" to="/">← Volver a entrar</Link>
         <div className="eyebrow">CREA TU IDENTIDAD</div>

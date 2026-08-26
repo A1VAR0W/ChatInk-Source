@@ -7,6 +7,17 @@ import type {
   SessionResponse,
   UploadResponse,
 } from '@pictochat/shared';
+
+export interface FriendSummary {
+  id: string;
+  username: string;
+  profilePhotoKey: string | null;
+  createdAt: string;
+  friendshipId: string;
+  status: 'pending' | 'accepted';
+  tier: 'normal' | 'close';
+  requestedByMe: boolean;
+}
 import { clientVersionHeaders, reportUnsupportedClient } from '../platform/clientMetadata';
 
 const configuredServerUrl = import.meta.env.VITE_SERVER_URL?.trim();
@@ -40,6 +51,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (response.status === 426 || data.code === 'CLIENT_VERSION_UNSUPPORTED') reportUnsupportedClient();
     throw new ApiClientError(data.code, data.error, response.status);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -51,12 +63,24 @@ export const api = {
     request<AccountAuthentication>('/api/accounts/register', {
       method: 'POST', body: JSON.stringify(input),
     }),
-  loginAccount: (input: { username: string; password: string }) =>
+  loginAccount: (input: { email: string; password: string }) =>
     request<AccountAuthentication>('/api/accounts/login', {
       method: 'POST', body: JSON.stringify(input),
     }),
   accountMe: (token: string) => request<{ account: AccountIdentity }>('/api/accounts/me', {
     headers: { Authorization: `Bearer ${token}` },
+  }),
+  friends: (token: string) => request<{ friends: FriendSummary[] }>('/api/accounts/friends', {
+    headers: { Authorization: `Bearer ${token}` },
+  }),
+  requestFriend: (token: string, username: string) => request<{ friendship: FriendSummary }>('/api/accounts/friends/requests', {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ username }),
+  }),
+  acceptFriend: (token: string, friendshipId: string) => request<void>(`/api/accounts/friends/requests/${encodeURIComponent(friendshipId)}/accept`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` },
+  }),
+  setFriendTier: (token: string, friendId: string, tier: 'normal' | 'close') => request<void>(`/api/accounts/friends/${encodeURIComponent(friendId)}`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ tier }),
   }),
   publicRooms: () => request<{ rooms: RoomSummary[] }>('/api/rooms/public'),
   createRoom: (token: string, input: { name: string; visibility: 'public' | 'private'; password?: string; maxParticipants?: number }) =>

@@ -56,7 +56,7 @@ describe('access and lobby UI', () => {
     }), { status: 426, headers: { 'Content-Type': 'application/json' } }));
     render(<App />);
     fireEvent.click(screen.getByRole('tab', { name: 'Mi cuenta' }));
-    fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'Ada' } });
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'a-secure-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Versión de ChatInk incompatible');
@@ -70,6 +70,22 @@ describe('access and lobby UI', () => {
     expect(screen.getByLabelText('Usuario')).toBeVisible();
     expect(screen.getByLabelText('Correo electrónico')).toBeVisible();
     expect(screen.getByLabelText('Repetir contraseña')).toBeVisible();
+  });
+
+  it('abre Amigos como un panel superpuesto y conserva el tema fuera de la interfaz', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/api/sessions')) return Promise.resolve(new Response(JSON.stringify({ sessionId: 'session-1', alias: 'Ada', token: 'temporary-token', expiresAt: Date.now() + 60_000 }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      return Promise.resolve(new Response(JSON.stringify({ rooms: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('¿Cómo te llamamos?'), { target: { value: 'Ada' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar como invitado' }));
+    await screen.findByRole('heading', { name: /Dónde quieres/ });
+    fireEvent.click(screen.getByRole('button', { name: /Amigos/ }));
+    expect(screen.getByRole('dialog', { name: 'Amigos' })).toBeVisible();
+    expect(screen.getByText('Solo para cuentas')).toBeVisible();
+    expect(screen.queryByLabelText(/Activar tema/)).not.toBeInTheDocument();
   });
 
   it('guarda el tamaño de lectura elegido desde el lobby', async () => {
@@ -110,7 +126,7 @@ describe('access and lobby UI', () => {
     });
     render(<App />);
     fireEvent.click(screen.getByRole('tab', { name: 'Mi cuenta' }));
-    fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'Ada' } });
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'a-secure-password' } });
     fireEvent.click(screen.getByRole('checkbox', { name: /Recordarme en este dispositivo/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));

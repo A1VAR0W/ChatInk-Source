@@ -28,12 +28,13 @@ import type { AntivirusScanner } from './storage/virus-scanner.js';
 const createSessionSchema = z.object({ alias: aliasSchema });
 const usernameSchema = z.string().trim().min(2).max(24)
   .regex(/^[\p{L}\p{N}._-]+$/u, 'Usa letras, numeros, punto, guion o guion bajo');
+const emailSchema = z.string().trim().email('Introduce un correo electronico valido').max(254);
 const accountLoginSchema = z.object({
-  username: usernameSchema,
+  email: emailSchema,
   password: z.string().min(10).max(128),
 }).strict();
 const accountRegistrationSchema = accountLoginSchema.extend({
-  email: z.string().trim().email('Introduce un correo electronico valido').max(254),
+  username: usernameSchema,
 }).strict();
 const settingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).optional(),
@@ -146,7 +147,7 @@ export function registerRoutes(app: FastifyInstance, services: Services): void {
     if (accounts === undefined) return reply.code(503).send({ error: 'Las cuentas no estan disponibles', code: 'ACCOUNTS_DISABLED' });
     const parsed = accountLoginSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send(validationError(parsed.error));
-    const account = await accounts.authenticate(parsed.data.username, parsed.data.password);
+    const account = await accounts.authenticate(parsed.data.email, parsed.data.password);
     const authentication = await tokens.createAccountToken(account.id, account.username);
     return { account, ...authentication };
   });

@@ -3,7 +3,7 @@ import type { RoomSummary } from '@pictochat/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Brand } from '../components/Brand';
 import { Avatar } from '../components/Avatar';
-import { ThemeToggle } from '../components/ThemeToggle';
+import { FriendsDrawer } from '../components/FriendsDrawer';
 import { ApiClientError, api } from '../services/api';
 import { useSession } from '../state/session';
 import { useMessageTextSize } from '../state/messageTextSize';
@@ -24,6 +24,7 @@ export function LobbyPage() {
   const [loadingAction, setLoadingAction] = useState<'create' | 'join'>();
   const [mobileAction, setMobileAction] = useState<'create' | 'join'>(() => searchParams.get('room') === null ? 'create' : 'join');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -113,8 +114,9 @@ export function LobbyPage() {
             </div>
           )}
         </div>
-        <div className="header-actions"><ThemeToggle /></div>
+        <div className="header-actions"><button type="button" className="friends-button" aria-haspopup="dialog" aria-expanded={friendsOpen} onClick={() => setFriendsOpen(true)}><span aria-hidden="true">♧</span><span>Amigos</span></button></div>
       </header>
+      <FriendsDrawer open={friendsOpen} onClose={() => setFriendsOpen(false)} accountToken={session.accountToken} />
       <div className="lobby-content">
         <section className="lobby-intro"><div className="eyebrow">ELIGE TU PUERTA</div><h1>¿Dónde quieres <span>garabatear?</span></h1><p>Crea un espacio nuevo o entra con el código que te hayan compartido.</p></section>
         <section className="message-size-setting" aria-label="Tamaño de letra de los mensajes">

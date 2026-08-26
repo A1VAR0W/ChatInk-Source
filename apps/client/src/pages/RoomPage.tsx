@@ -7,7 +7,6 @@ import { Avatar } from '../components/Avatar';
 import { ChatComposer } from '../components/ChatComposer';
 import { CanvasIcon, ExitIcon, PeopleIcon } from '../components/Icons';
 import { MessageList } from '../components/MessageList';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { UploadTray, type UploadItem } from '../components/UploadTray';
 import { useRoomSocket } from '../hooks/useRoomSocket';
 import { ApiClientError, uploadFile } from '../services/api';
@@ -158,7 +157,6 @@ function ActiveRoom({ roomId }: { roomId: string }) {
             </Popover.Positioner>
           </Popover.Portal>
         </Popover.Root>
-        <ThemeToggle />
         {access.role === 'creator' && <button type="button" className="icon-button close-room-button" onClick={() => void close()} aria-label="Cerrar sala" title="Cerrar sala"><ExitIcon /></button>}
       </header>
 

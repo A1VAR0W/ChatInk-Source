@@ -24,9 +24,9 @@ describe.skipIf(connectionString === undefined)('PostgreSQL account persistence'
     const alice = await accounts.register(`Alice_${suffix}`, `alice_${suffix}@example.com`, 'a-secure-password-123');
     const bob = await accounts.register(`Bob_${suffix}`, `bob_${suffix}@example.com`, 'another-secure-password-456');
 
-    await expect(accounts.authenticate(`alice_${suffix}`, 'a-secure-password-123')).resolves.toMatchObject({ id: alice.id });
+    await expect(accounts.authenticate(`alice_${suffix}@example.com`, 'a-secure-password-123')).resolves.toMatchObject({ id: alice.id });
     expect(alice.email).toBe(`alice_${suffix}@example.com`);
-    await expect(accounts.authenticate(`alice_${suffix}`, 'wrong-password')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(accounts.authenticate(`alice_${suffix}@example.com`, 'wrong-password')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
 
     const updated = await accounts.updateSettings(alice.id, {
       theme: 'dark',
