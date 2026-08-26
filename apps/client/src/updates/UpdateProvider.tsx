@@ -1,9 +1,7 @@
-import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import type { UpdateChannel, UpdateRelease } from '@pictochat/shared';
 import {
-  UPDATE_CHECK_INTERVAL_MS,
   UpdateCheckError,
   automaticChecksEnabled,
   decideUpdate,
@@ -14,7 +12,6 @@ import {
 import { CLIENT_VERSION_UNSUPPORTED_EVENT } from '../platform/clientMetadata';
 import { UpdateExperience } from './UpdateExperience';
 
-const LAST_CHECK_KEY = 'chatink.update.last-check';
 const DISMISSED_VERSION_KEY = 'chatink.update.dismissed-version';
 
 export type UpdateStatus = 'idle' | 'checking' | 'available' | 'current' | 'empty' | 'offline' | 'error';
@@ -37,24 +34,8 @@ const UpdateContext = createContext<UpdateContextValue | undefined>(undefined);
 
 type UpdateProviderProps = PropsWithChildren<{
   fetchManifest?: typeof fetchUpdateManifest;
+  readVersion?: typeof readInstalledVersion;
 }>;
-
-function readTimestamp(): number {
-  try {
-    const value = Number(localStorage.getItem(LAST_CHECK_KEY));
-    return Number.isSafeInteger(value) && value > 0 ? value : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function rememberCheck(): void {
-  try {
-    localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
-  } catch {
-    // El almacenamiento no es necesario para seguir usando la aplicación.
-  }
-}
 
 function isDismissed(version: string): boolean {
   try {
@@ -104,7 +85,7 @@ function observeServiceWorker(onUpdate: (registration: ServiceWorkerRegistration
   };
 }
 
-export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }: UpdateProviderProps) {
+export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest, readVersion = readInstalledVersion }: UpdateProviderProps) {
   const installedRef = useRef<InstalledVersion | undefined>(undefined);
   const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
   const launchCheckStarted = useRef(false);
@@ -118,11 +99,11 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
 
   const loadInstalled = useCallback(async (): Promise<InstalledVersion> => {
     if (installedRef.current !== undefined) return installedRef.current;
-    const resolved = await readInstalledVersion();
+    const resolved = await readVersion();
     installedRef.current = resolved;
     setInstalled(resolved);
     return resolved;
-  }, []);
+  }, [readVersion]);
 
   const checkForUpdates = useCallback(async (manual = false) => {
     setStatus('checking');
@@ -187,7 +168,6 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
       if (launchCheckStarted.current) return;
       launchCheckStarted.current = true;
       timer = window.setTimeout(() => {
-        rememberCheck();
         void checkForUpdates();
       }, 0);
     });
@@ -204,19 +184,6 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
     window.addEventListener(CLIENT_VERSION_UNSUPPORTED_EVENT, onUnsupported);
     return () => window.removeEventListener(CLIENT_VERSION_UNSUPPORTED_EVENT, onUnsupported);
   }, [checkForUpdates]);
-
-  useEffect(() => {
-    let removeListener: (() => Promise<void>) | undefined;
-    void App.addListener('appStateChange', ({ isActive }) => {
-      if (!isActive || !automaticChecksEnabled() || Date.now() - readTimestamp() < UPDATE_CHECK_INTERVAL_MS) return;
-      void loadInstalled().then((current) => {
-        if (current.platform === 'web') return;
-        rememberCheck();
-        void checkForUpdates();
-      });
-    }).then((handle) => { removeListener = handle.remove; }).catch(() => undefined);
-    return () => { void removeListener?.(); };
-  }, [checkForUpdates, loadInstalled]);
 
   useEffect(() => observeServiceWorker((registration) => {
     registrationRef.current = registration;

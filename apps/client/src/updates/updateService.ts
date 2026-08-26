@@ -42,9 +42,19 @@ export function compareVersions(left: string, right: string): number {
   return 0;
 }
 
-function versionCode(version: string): number {
+function legacyVersionCode(version: string): number {
   const [major, minor, patch] = parseVersion(version);
   return major * 1_000_000 + minor * 1_000 + patch + 1;
+}
+
+function channelVersionCode(version: string, channel: UpdateChannel): number {
+  const [major, minor, patch] = parseVersion(version);
+  const productPosition = major * 1_000_000 + minor * 1_000 + patch;
+  return productPosition * 2 + (channel === 'preproduction' ? 1 : 2);
+}
+
+function isKnownVersionCode(version: string, value: number, channel: UpdateChannel): boolean {
+  return value === legacyVersionCode(version) || value === channelVersionCode(version, channel);
 }
 
 function expectedUrl(value: string, host: string, path: string): boolean {
@@ -71,7 +81,7 @@ export function assertTrustedRelease(release: UpdateRelease, channel: UpdateChan
   const repositoryPath = channel === 'preproduction' ? '/A1VAR0W/ChatInk-Source' : '/A1VAR0W/ChatInk-Releases';
   const tag = encodeURIComponent(release.tag);
   const version = encodeURIComponent(release.version);
-  if (release.tag !== `v${release.version}` || release.versionCode !== versionCode(release.version)) {
+  if (release.tag !== `v${release.version}` || !isKnownVersionCode(release.version, release.versionCode, channel)) {
     throw new UpdateCheckError('untrusted-release');
   }
   if (!expectedUrl(release.releaseUrl, 'github.com', `${repositoryPath}/releases/tag/${tag}`)) {
@@ -149,11 +159,11 @@ export async function fetchUpdateManifest(
 
 function embeddedVersion(): InstalledVersion {
   const version = import.meta.env.VITE_APP_VERSION || '0.1.0';
-  const parsedCode = Number(import.meta.env.VITE_APP_VERSION_CODE || versionCode(version));
+  const parsedCode = Number(import.meta.env.VITE_APP_VERSION_CODE || legacyVersionCode(version));
   const platform = Capacitor.getPlatform();
   return {
     version,
-    versionCode: Number.isSafeInteger(parsedCode) && parsedCode > 0 ? parsedCode : versionCode(version),
+    versionCode: Number.isSafeInteger(parsedCode) && parsedCode > 0 ? parsedCode : legacyVersionCode(version),
     platform: platform === 'android' || platform === 'ios' ? platform : 'web',
     source: 'embedded',
     nativeMismatch: false,

@@ -389,6 +389,8 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .update-dialog__steps .update-dialog__hint { margin-top: 10px; }
 .update-dialog__hint, .update-dialog__ios > p { margin: 16px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.45; }
 .update-dialog__ios { margin-top: 16px; }
+.update-dialog__ios h3 { margin: 0 0 8px; font-size: 14px; }
+.update-dialog__ios ol { display: grid; gap: 7px; margin: 0; padding-left: 20px; color: var(--ink); font-size: 13px; line-height: 1.45; }
 .update-dialog__ios label { display: block; margin: 14px 0 6px; color: var(--ink-muted); font-size: 11px; font-weight: 750; }
 .update-dialog__ios input { width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 11px; }
 .update-dialog__success { color: var(--green-strong) !important; font-weight: 700; }

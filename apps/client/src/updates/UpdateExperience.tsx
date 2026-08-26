@@ -147,7 +147,13 @@ export function UpdateExperience() {
                 )}
                 {updates.installed?.platform === 'ios' && (
                   <section className="update-dialog__ios" aria-label="Instrucciones de SideStore o AltStore">
-                    <p>{isPreproduction ? 'En preproducción, añade esta fuente privada en SideStore o AltStore y deja que firme el IPA con tu cuenta Apple.' : 'Abre SideStore o AltStore, añade esta fuente y deja que firme el IPA con tu cuenta Apple.'} No es una instalación directa ni de App Store.</p>
+                    <h3>Cómo actualizar en iPhone</h3>
+                    <ol>
+                      <li>Abre SideStore o AltStore y entra en «Sources».</li>
+                      <li>Añade la URL de abajo y actualiza la fuente.</li>
+                      <li>Abre ChatInk desde la fuente e instala o refresca la versión nueva.</li>
+                    </ol>
+                    <p>{isPreproduction ? 'Esta es la fuente de preproducción. También puedes descargar el IPA e importarlo manualmente en SideStore.' : 'También puedes descargar el IPA e importarlo manualmente en SideStore o AltStore.'} No es una instalación de App Store.</p>
                     <label htmlFor="sidestore-source">URL de la fuente</label>
                     <input id="sidestore-source" readOnly value={release.platforms.ios.sourceUrl} onFocus={(event) => event.currentTarget.select()} />
                     {iosCopyState === 'copied' && <p className="update-dialog__success" role="status">URL copiada. Pégala en SideStore o AltStore.</p>}
@@ -160,6 +166,7 @@ export function UpdateExperience() {
             <div className="update-dialog__actions">
               {!updates.mandatory && <button type="button" className="button button--secondary" onClick={close}>Más tarde</button>}
               {updates.mandatory && <button type="button" className="button button--secondary" onClick={() => void updates.checkForUpdates(true)}>Reintentar</button>}
+              {updates.installed?.platform === 'ios' && release !== undefined && <button type="button" className="button button--secondary" onClick={() => openExternal(release.platforms.ios.downloadUrl)}>Descargar IPA</button>}
               {updates.installed?.platform === 'ios' && release !== undefined && !isPreproduction && <button type="button" className="button button--secondary" onClick={() => openExternal(release.releaseUrl)}>Ver release</button>}
               <button ref={primaryActionRef} type="button" className="button" onClick={primaryAction}>{updates.mandatory ? 'Actualizar ahora' : primaryLabel}</button>
             </div>

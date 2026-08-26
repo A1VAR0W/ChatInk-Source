@@ -33,7 +33,7 @@ export function EntryPage() {
       void navigate(`/lobby${location.search}`, { replace: true });
     } catch (requestError) {
       setError(requestError instanceof ApiClientError && (requestError.code === 'CLIENT_VERSION_UNSUPPORTED' || requestError.status === 426)
-        ? 'La versión de ChatInk es incompatible. Actualiza la aplicación para continuar.'
+        ? 'Versión de ChatInk incompatible'
         : requestError instanceof ApiClientError ? requestError.message : 'No se pudo conectar con el servidor');
     } finally {
       setLoading(false);

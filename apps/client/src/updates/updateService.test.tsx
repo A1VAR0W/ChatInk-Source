@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import type { LatestUpdateManifest, UpdateRelease } from '@pictochat/shared';
 import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -69,7 +69,7 @@ function preproductionRelease(overrides: Partial<UpdateRelease> = {}): UpdateRel
     ...release({
       tag,
       version,
-      versionCode: 1_010_001,
+      versionCode: 2_020_001,
       releaseUrl: `https://github.com/A1VAR0W/ChatInk-Source/releases/tag/${tag}`,
       platforms: {
         android: { downloadUrl: `https://github.com/A1VAR0W/ChatInk-Source/releases/download/${tag}/ChatInk-${version}.apk`, sha256: 'c'.repeat(64), size: 1_024 },
@@ -122,6 +122,29 @@ describe('update service', () => {
     expect(() => decideUpdate({ ...preproductionManifest, channel: 'stable' }, installed)).toThrow(UpdateCheckError);
   });
 
+  it('acepta el versionCode independiente de preproducción', () => {
+    const installedPreproduction: InstalledVersion = {
+      version: '0.2.1',
+      versionCode: 4_003,
+      platform: 'android',
+      source: 'native',
+      nativeMismatch: false,
+    };
+    const next = preproductionRelease({
+      tag: 'v0.2.2',
+      version: '0.2.2',
+      versionCode: 4_005,
+      mandatory: true,
+      minimumSupportedVersion: '0.2.2',
+      platforms: {
+        android: { downloadUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.2.apk', sha256: 'c'.repeat(64), size: 1_024 },
+        ios: { downloadUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.2.ipa', sha256: 'd'.repeat(64), size: 2_048, sourceUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json' },
+      },
+    });
+    expect(decideUpdate({ schemaVersion: 1, channel: 'preproduction', release: next }, installedPreproduction))
+      .toMatchObject({ kind: 'available', mandatory: true });
+  });
+
   it('trata JSON inválido, timeout y offline como fallos recuperables', async () => {
     await expect(fetchUpdateManifest(
       'https://raw.githubusercontent.com/A1VAR0W/ChatInk-Releases/main/latest.json',
@@ -146,5 +169,35 @@ describe('update experience', () => {
     render(<BrowserRouter><UpdateProvider fetchManifest={vi.fn().mockResolvedValue(manifest(release()))}><UpdateExperience /></UpdateProvider></BrowserRouter>);
     expect(screen.queryByRole('button', { name: /Buscar actualizaciones/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Actualizaciones de ChatInk')).not.toBeInTheDocument();
+  });
+
+  it('abre las instrucciones de Android solo después del rechazo de versión', async () => {
+    const next = preproductionRelease({
+      tag: 'v0.2.2',
+      version: '0.2.2',
+      versionCode: 4_005,
+      mandatory: true,
+      minimumSupportedVersion: '0.2.2',
+      platforms: {
+        android: { downloadUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.2.apk', sha256: 'c'.repeat(64), size: 1_024 },
+        ios: { downloadUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.2.ipa', sha256: 'd'.repeat(64), size: 2_048, sourceUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json' },
+      },
+    });
+    render(
+      <BrowserRouter>
+        <UpdateProvider
+          fetchManifest={vi.fn().mockResolvedValue({ schemaVersion: 1, channel: 'preproduction', release: next })}
+          readVersion={vi.fn().mockResolvedValue({ version: '0.2.1', versionCode: 4_003, platform: 'android', source: 'native', nativeMismatch: false })}
+        >
+          <div />
+        </UpdateProvider>
+      </BrowserRouter>,
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(new Event('chatink:client-version-unsupported'));
+    });
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Cómo actualizar en Android');
+    expect(screen.getByRole('button', { name: 'Actualizar ahora' })).toBeInTheDocument();
   });
 });

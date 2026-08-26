@@ -36,6 +36,17 @@ describe('access and lobby UI', () => {
     expect(sessionStorage.getItem('doodledrop.session')).toContain('temporary-token');
   });
 
+  it('muestra el error de versión incompatible al intentar entrar', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      code: 'CLIENT_VERSION_UNSUPPORTED',
+      error: 'Versión no soportada',
+    }), { status: 426, headers: { 'Content-Type': 'application/json' } }));
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('¿Cómo te llamamos?'), { target: { value: 'Ada' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Versión de ChatInk incompatible');
+  });
+
   it('guarda el tamaño de lectura elegido desde el lobby', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
