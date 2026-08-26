@@ -48,6 +48,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: android-builder-${{ github.ref }}-${{ inputs.target_environment || 'preproduction' }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
     name: Build signed Android APK
@@ -353,7 +357,7 @@ jobs:
             ChatInk-${{ steps.version.outputs.version }}.apk
             ChatInk-${{ steps.version.outputs.version }}.apk.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
       - name: Upload signed Google Play app bundle
         uses: actions/upload-artifact@v4
@@ -363,4 +367,4 @@ jobs:
             ChatInk-${{ steps.version.outputs.version }}.aab
             ChatInk-${{ steps.version.outputs.version }}.aab.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3

@@ -39,6 +39,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ios-builder-${{ github.ref }}-${{ inputs.target_environment || 'preproduction' }}
+  cancel-in-progress: true
+
 jobs:
   build-ios:
     name: Build SideStore-compatible IPA
@@ -183,4 +187,4 @@ jobs:
             ChatInk-${{ steps.version.outputs.version }}.ipa
             ChatInk-${{ steps.version.outputs.version }}.ipa.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
