@@ -30,7 +30,10 @@ ENV NODE_ENV=production \
     CLIENT_DIST=apps/client/dist \
     TEMP_ROOT=/tmp/chatink-preproduction
 
-RUN useradd --create-home --uid 10001 appuser
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 appuser
 COPY --from=builder --chown=appuser:appuser /app/package.json /app/package-lock.json ./
 COPY --from=builder --chown=appuser:appuser /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appuser /app/apps/server/package.json ./apps/server/package.json
@@ -38,7 +41,8 @@ COPY --from=builder --chown=appuser:appuser /app/apps/server/dist ./apps/server/
 COPY --from=builder --chown=appuser:appuser /app/apps/client/dist ./apps/client/dist
 COPY --from=builder --chown=appuser:appuser /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=builder --chown=appuser:appuser /app/packages/shared/dist ./packages/shared/dist
+COPY --chmod=0755 deploy/docker-entrypoint.preproduction.sh /usr/local/bin/chatink-entrypoint
 
-USER appuser
 EXPOSE 3001
+ENTRYPOINT ["/usr/local/bin/chatink-entrypoint"]
 CMD ["node", "apps/server/dist/server.js"]
