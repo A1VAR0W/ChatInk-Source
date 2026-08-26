@@ -33,7 +33,6 @@ services:
         VITE_PUBLIC_APP_URL: ${PUBLIC_APP_URL:?PUBLIC_APP_URL es obligatorio}
         VITE_UPDATE_MANIFEST_URL: https://chat-ink.tail552c89.ts.net:8443/preproduction-update.json
     image: chatink-preproduction:local
-    user: "1000:1000"
     init: true
     restart: unless-stopped
     depends_on:
