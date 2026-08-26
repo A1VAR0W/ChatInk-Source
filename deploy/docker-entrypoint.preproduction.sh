@@ -27,4 +27,8 @@ if [ -n "${DATABASE_URL_FILE:-}" ]; then
   unset DATABASE_URL_FILE
 fi
 
-exec gosu appuser "$@"
+if [ "$(id -u)" -eq 0 ]; then
+  exec gosu appuser "$@"
+fi
+
+exec "$@"
