@@ -2,28 +2,28 @@
   "schemaVersion": 1,
   "channel": "preproduction",
   "release": {
-    "tag": "v0.2.1",
-    "version": "0.2.1",
-    "versionCode": 4003,
-    "publishedAt": "2026-08-26T10:14:00.000Z",
-    "minimumSupportedVersion": "0.2.1",
+    "tag": "v0.2.2",
+    "version": "0.2.2",
+    "versionCode": 4005,
+    "publishedAt": "2026-08-26T14:50:00.000Z",
+    "minimumSupportedVersion": "0.2.2",
     "mandatory": true,
     "notes": [
-      "Primera versión de la fase 2: flujo de actualización bajo demanda y burbujas de mensajes renovadas.",
+      "Versión 0.2.2 de preproducción con control de versión y builds Android/iOS verificadas.",
       "La compatibilidad se comprueba al entrar con el alias y muestra instrucciones según el dispositivo.",
       "Actualización obligatoria para las builds de preproducción antiguas."
     ],
     "releaseUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json",
     "platforms": {
       "android": {
-        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.1.apk",
-        "sha256": "554f2c894c58406855836a1814755beae827642f256e703bbba60b128a768ca0",
+        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.2.apk",
+        "sha256": "4519d3859b66287cb299758223fe378027c6be40b83dab60f2a32a3e2262f3e8",
         "size": 4704477
       },
       "ios": {
-        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.1.ipa",
-        "sha256": "93eac965688838341b1ceaa7125eb9faf3d190e71b47a1fe01a13877b2d6cdd2",
-        "size": 2574089,
+        "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.2.ipa",
+        "sha256": "b497df779397bc306ec6f815bd39e3fc275f12f2192b5b950dc6124c2970bfe5",
+        "size": 2574076,
         "sourceUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json"
       }
     }
