@@ -8,19 +8,19 @@
       "bundleIdentifier": "com.gmail.alvaroaguileracuesta.preproduction",
       "developerName": "A1VAR0W",
       "subtitle": "Chat efímero de texto, dibujo y archivos.",
-      "localizedDescription": "Build privada de preproducción 0.2.0.",
-      "version": "0.2.0",
-      "versionDate": "2026-08-25T17:43:00.000Z",
-      "versionDescription": "Evita el zoom automático al escribir el nombre de sala y conserva el layout estable del teclado.",
-      "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
-      "size": 2573890,
+      "localizedDescription": "Build privada de preproducción 0.2.1.",
+      "version": "0.2.1",
+      "versionDate": "2026-08-26T08:02:00.000Z",
+      "versionDescription": "Comprueba la compatibilidad al entrar y renueva las burbujas de mensajes.",
+      "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.1.ipa",
+      "size": 2574089,
       "versions": [
         {
-          "version": "0.2.0",
-          "date": "2026-08-25T17:43:00.000Z",
-          "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.0.ipa",
-          "localizedDescription": "Evita el zoom automático al escribir el nombre de sala y conserva el layout estable del teclado.",
-          "size": 2573890
+          "version": "0.2.1",
+          "date": "2026-08-26T08:02:00.000Z",
+          "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.1.ipa",
+          "localizedDescription": "Comprueba la compatibilidad al entrar y renueva las burbujas de mensajes.",
+          "size": 2574089
         },
         {
           "version": "0.1.9",
