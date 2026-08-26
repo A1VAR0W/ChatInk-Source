@@ -8,13 +8,20 @@
       "bundleIdentifier": "com.gmail.alvaroaguileracuesta.preproduction",
       "developerName": "A1VAR0W",
       "subtitle": "Chat efímero de texto, dibujo y archivos.",
-      "localizedDescription": "Build privada de preproducción 0.2.2.",
-      "version": "0.2.2",
-      "versionDate": "2026-08-26T14:50:00.000Z",
-      "versionDescription": "Versión 0.2.2 con control de versiones y correcciones de compatibilidad.",
-      "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.2.ipa",
-      "size": 2574076,
+      "localizedDescription": "Build privada de preproducción 0.2.3.",
+      "version": "0.2.3",
+      "versionDate": "2026-08-26T16:03:00.000Z",
+      "versionDescription": "Acceso con cuenta, sesión recordada, menú de perfil y conversaciones agrupadas.",
+      "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.3.ipa",
+      "size": 2577075,
       "versions": [
+        {
+          "version": "0.2.3",
+          "date": "2026-08-26T16:03:00.000Z",
+          "downloadURL": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.3.ipa",
+          "localizedDescription": "Acceso con cuenta, sesión recordada, menú de perfil y conversaciones agrupadas.",
+          "size": 2577075
+        },
         {
           "version": "0.2.2",
           "date": "2026-08-26T14:50:00.000Z",
