@@ -5,7 +5,7 @@
     "tag": "v0.2.1",
     "version": "0.2.1",
     "versionCode": 4003,
-    "publishedAt": "2026-08-26T08:02:00.000Z",
+    "publishedAt": "2026-08-26T10:14:00.000Z",
     "minimumSupportedVersion": "0.2.1",
     "mandatory": true,
     "notes": [
@@ -17,12 +17,12 @@
     "platforms": {
       "android": {
         "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.1.apk",
-        "sha256": "6ffa01b5afdedc8258ddd51300d9b016f6af46f90dc97c36e7b509c65c5e7f75",
+        "sha256": "554f2c894c58406855836a1814755beae827642f256e703bbba60b128a768ca0",
         "size": 4704477
       },
       "ios": {
         "downloadUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-builds/ChatInk-0.2.1.ipa",
-        "sha256": "57aa55a20b86c3e8204cd561b09295089f0a97c14e1117ed983b18838206998f",
+        "sha256": "93eac965688838341b1ceaa7125eb9faf3d190e71b47a1fe01a13877b2d6cdd2",
         "size": 2574089,
         "sourceUrl": "https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json"
       }
