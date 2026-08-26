@@ -144,6 +144,20 @@ export interface SessionResponse {
   expiresAt: number;
 }
 
+export interface AccountIdentity {
+  id: string;
+  username: string;
+  email: string;
+  profilePhotoKey: string | null;
+  createdAt: string;
+}
+
+export interface AccountAuthentication {
+  account: AccountIdentity;
+  token: string;
+  expiresAt: number;
+}
+
 export interface RoomSummary {
   id: string;
   code: string;

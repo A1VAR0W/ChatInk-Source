@@ -1,4 +1,6 @@
 import type {
+  AccountAuthentication,
+  AccountIdentity,
   ApiError,
   RoomAccessResponse,
   RoomSummary,
@@ -21,6 +23,13 @@ export class ApiClientError extends Error {
   }
 }
 
+export function entryApiError(error: unknown): string {
+  if (error instanceof ApiClientError && (error.code === 'CLIENT_VERSION_UNSUPPORTED' || error.status === 426)) {
+    return 'Versión de ChatInk incompatible';
+  }
+  return error instanceof ApiClientError ? error.message : 'No se pudo conectar con el servidor';
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${SERVER_URL}${path}`, {
     ...options,
@@ -37,6 +46,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const api = {
   createSession: (alias: string) => request<SessionResponse>('/api/sessions', {
     method: 'POST', body: JSON.stringify({ alias }),
+  }),
+  registerAccount: (input: { username: string; email: string; password: string }) =>
+    request<AccountAuthentication>('/api/accounts/register', {
+      method: 'POST', body: JSON.stringify(input),
+    }),
+  loginAccount: (input: { username: string; password: string }) =>
+    request<AccountAuthentication>('/api/accounts/login', {
+      method: 'POST', body: JSON.stringify(input),
+    }),
+  accountMe: (token: string) => request<{ account: AccountIdentity }>('/api/accounts/me', {
+    headers: { Authorization: `Bearer ${token}` },
   }),
   publicRooms: () => request<{ rooms: RoomSummary[] }>('/api/rooms/public'),
   createRoom: (token: string, input: { name: string; visibility: 'public' | 'private'; password?: string; maxParticipants?: number }) =>

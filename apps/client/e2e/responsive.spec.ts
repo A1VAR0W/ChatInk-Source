@@ -47,9 +47,9 @@ async function expectMessageBubbleLayout(page: Page, text: string, own: boolean)
   const metrics = await page.locator('.message').filter({ hasText: text }).last().evaluate((message) => {
     const bubble = message.querySelector<HTMLElement>('.message-bubble');
     const content = message.querySelector<HTMLElement>('.message-text__content');
-    const time = message.querySelector<HTMLElement>('.message-time');
+    const time = message.closest('.message-group')?.querySelector<HTMLElement>('.message-header span');
     const list = document.querySelector<HTMLElement>('.message-list');
-    if (bubble === null || content === null || time === null || list === null) throw new Error('Message layout unavailable');
+    if (bubble === null || content === null || time === null || time === undefined || list === null) throw new Error('Message layout unavailable');
     const bubbleRect = bubble.getBoundingClientRect();
     const contentRect = content.getBoundingClientRect();
     const timeRect = time.getBoundingClientRect();
@@ -57,6 +57,7 @@ async function expectMessageBubbleLayout(page: Page, text: string, own: boolean)
     const contentStyle = getComputedStyle(content);
     return {
       bubble: { width: bubbleRect.width, left: bubbleRect.left, right: bubbleRect.right },
+      bubbleTop: bubbleRect.top,
       content: {
         text: content.textContent,
         bottom: contentRect.bottom,
@@ -67,7 +68,8 @@ async function expectMessageBubbleLayout(page: Page, text: string, own: boolean)
         overflowWrap: contentStyle.overflowWrap,
         whiteSpace: contentStyle.whiteSpace,
       },
-      timeTop: timeRect.top,
+      timeBottom: timeRect.bottom,
+      timeInsideBubble: bubble.querySelector('.message-time') !== null,
       list: { width: listRect.width, left: listRect.left, right: listRect.right },
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
@@ -81,7 +83,8 @@ async function expectMessageBubbleLayout(page: Page, text: string, own: boolean)
   expect(metrics.content.whiteSpace).toBe('pre-wrap');
   expect(metrics.content.scrollWidth).toBeLessThanOrEqual(metrics.content.clientWidth + 1);
   expect(metrics.bubble.width).toBeLessThanOrEqual(Math.min(metrics.list.width * 0.82, 576) + 1);
-  expect(metrics.timeTop).toBeGreaterThanOrEqual(metrics.content.bottom);
+  expect(metrics.timeInsideBubble).toBe(false);
+  expect(metrics.timeBottom).toBeLessThanOrEqual(metrics.bubbleTop + 1);
   expect(metrics.documentWidth).toBeLessThanOrEqual(metrics.viewportWidth);
   expect(Math.abs((own ? metrics.bubble.right - metrics.list.right : metrics.bubble.left - metrics.list.left))).toBeLessThanOrEqual(1);
 }
@@ -117,14 +120,14 @@ test('message bubbles keep complete words, metadata and alignment across respons
 
   await first.goto('/');
   await first.getByLabel('¿Cómo te llamamos?').fill('Ada');
-  await first.getByRole('button', { name: 'Continuar' }).click();
+  await first.getByRole('button', { name: 'Entrar como invitado' }).click();
   await first.getByRole('button', { name: 'Crear sala', exact: true }).click();
   await expect(first.locator('.connection--connected')).toBeVisible();
   const code = await first.locator('.room-identity code').innerText();
 
   await second.goto(`/?room=${code}`);
   await second.getByLabel('¿Cómo te llamamos?').fill('Lin');
-  await second.getByRole('button', { name: 'Continuar' }).click();
+  await second.getByRole('button', { name: 'Entrar como invitado' }).click();
   await second.getByLabel('Código de sala').fill(code);
   await second.getByRole('button', { name: 'Entrar en la sala' }).click();
   await expect(second.locator('.connection--connected')).toBeVisible();
@@ -173,14 +176,14 @@ test('two isolated clients exchange replies, typing and touch-friendly drawings'
 
   await first.goto('/');
   await first.getByLabel('¿Cómo te llamamos?').fill('Ada');
-  await first.getByRole('button', { name: 'Continuar' }).click();
+  await first.getByRole('button', { name: 'Entrar como invitado' }).click();
   await first.getByRole('button', { name: 'Crear sala', exact: true }).click();
   await expect(first.locator('.connection--connected')).toBeVisible();
   const code = await first.locator('.room-identity code').innerText();
 
   await second.goto(`/?room=${code}`);
   await second.getByLabel('¿Cómo te llamamos?').fill('Lin');
-  await second.getByRole('button', { name: 'Continuar' }).click();
+  await second.getByRole('button', { name: 'Entrar como invitado' }).click();
   await second.getByLabel('Código de sala').fill(code);
   await second.getByRole('button', { name: 'Entrar en la sala' }).click();
   await expect(second.locator('.connection--connected')).toBeVisible();

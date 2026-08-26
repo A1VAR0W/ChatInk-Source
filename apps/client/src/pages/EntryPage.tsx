@@ -1,16 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { aliasSchema } from '@pictochat/shared';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Brand } from '../components/Brand';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { ApiClientError, api } from '../services/api';
+import { api, entryApiError } from '../services/api';
 import { useSession } from '../state/session';
 
 export function EntryPage() {
-  const { session, setSession } = useSession();
+  const { session, restoringAccount, setGuestSession, setAccountSession } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const [alias, setAlias] = useState('');
+  const [mode, setMode] = useState<'guest' | 'account'>('guest');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +22,7 @@ export function EntryPage() {
     if (session !== undefined) void navigate(`/lobby${location.search}`, { replace: true });
   }, [session, navigate, location.search]);
 
-  const submit = async (event: FormEvent) => {
+  const submitGuest = async (event: FormEvent) => {
     event.preventDefault();
     const parsed = aliasSchema.safeParse(alias);
     if (!parsed.success) {
@@ -29,12 +33,30 @@ export function EntryPage() {
     setError(undefined);
     try {
       const created = await api.createSession(parsed.data);
-      setSession(created);
+      setGuestSession(created);
       void navigate(`/lobby${location.search}`, { replace: true });
     } catch (requestError) {
-      setError(requestError instanceof ApiClientError && (requestError.code === 'CLIENT_VERSION_UNSUPPORTED' || requestError.status === 426)
-        ? 'Versión de ChatInk incompatible'
-        : requestError instanceof ApiClientError ? requestError.message : 'No se pudo conectar con el servidor');
+      setError(entryApiError(requestError));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitAccount = async (event: FormEvent) => {
+    event.preventDefault();
+    if (username.trim().length < 2 || password.length < 10) {
+      setError('Introduce tu usuario y una contraseña de al menos 10 caracteres');
+      return;
+    }
+    setLoading(true);
+    setError(undefined);
+    try {
+      const authentication = await api.loginAccount({ username: username.trim(), password });
+      const chatSession = await api.createSession(authentication.account.username);
+      setAccountSession(chatSession, authentication, remember);
+      void navigate(`/lobby${location.search}`, { replace: true });
+    } catch (requestError) {
+      setError(entryApiError(requestError));
     } finally {
       setLoading(false);
     }
@@ -43,30 +65,34 @@ export function EntryPage() {
   return (
     <main className="entry-page">
       <div className="entry-top"><Brand /><ThemeToggle /></div>
-      <section className="entry-card">
-        <div className="eyebrow">CHAT EFÍMERO · SIN CUENTAS</div>
+      <section className="entry-card entry-card--access">
+        <div className="eyebrow">TU ESPACIO, A TU MANERA</div>
         <h1>Entra, dibuja,<br /><span>déjalo ir.</span></h1>
-        <p className="lead">Salas temporales para hablar, garabatear y compartir. Al cerrar la sala, todo desaparece.</p>
-        <form onSubmit={(event) => void submit(event)} noValidate>
-          <label htmlFor="alias">¿Cómo te llamamos?</label>
-          <div className="input-with-action">
-            <input
-              id="alias"
-              value={alias}
-              onChange={(event) => setAlias(event.target.value)}
-              autoComplete="nickname"
-              autoFocus
-              maxLength={24}
-              placeholder="Tu alias temporal"
-              aria-describedby={error === undefined ? 'alias-help' : 'alias-error'}
-            />
-            <button type="submit" className="button" disabled={loading}>{loading ? 'Entrando…' : 'Continuar'}</button>
-          </div>
-          {error === undefined
-            ? <small id="alias-help">2–24 caracteres. Se guarda solo durante esta pestaña.</small>
-            : <small id="alias-error" className="error-text" role="alert">{error}</small>}
-        </form>
-        <div className="privacy-note"><span aria-hidden="true">⌁</span><p><strong>Lo temporal es la regla.</strong><br />Sin historial ni perfiles permanentes. Cifrado en tránsito al desplegar con HTTPS.</p></div>
+        <p className="lead">Accede a tu cuenta o entra al instante como invitado. Las salas siguen siendo temporales.</p>
+        <div className="access-tabs" role="tablist" aria-label="Forma de acceso">
+          <button type="button" role="tab" aria-selected={mode === 'guest'} className={mode === 'guest' ? 'active' : ''} onClick={() => { setMode('guest'); setError(undefined); }}>Invitado</button>
+          <button type="button" role="tab" aria-selected={mode === 'account'} className={mode === 'account' ? 'active' : ''} onClick={() => { setMode('account'); setError(undefined); }}>Mi cuenta</button>
+        </div>
+        {mode === 'guest' ? (
+          <form className="access-form" onSubmit={(event) => void submitGuest(event)} noValidate>
+            <label htmlFor="alias">¿Cómo te llamamos?</label>
+            <input id="alias" value={alias} onChange={(event) => setAlias(event.target.value)} autoComplete="nickname" maxLength={24} placeholder="Tu alias temporal" aria-describedby={error === undefined ? 'alias-help' : 'entry-error'} />
+            <button type="submit" className="button button--full" disabled={loading}>{loading ? 'Entrando…' : 'Entrar como invitado'}</button>
+            {error === undefined ? <small id="alias-help">No necesita cuenta y se guarda solo durante esta sesión.</small> : <small id="entry-error" className="error-text" role="alert">{error}</small>}
+          </form>
+        ) : (
+          <form className="access-form" onSubmit={(event) => void submitAccount(event)} noValidate>
+            <label htmlFor="username">Usuario</label>
+            <input id="username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" maxLength={24} placeholder="Tu nombre de usuario" />
+            <label htmlFor="password">Contraseña</label>
+            <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" maxLength={128} placeholder="Tu contraseña" />
+            <label className="remember-choice"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span><strong>Recordarme en este dispositivo</strong><small>Entrarás directamente la próxima vez.</small></span></label>
+            <button type="submit" className="button button--full" disabled={loading || restoringAccount}>{loading || restoringAccount ? 'Entrando…' : 'Iniciar sesión'}</button>
+            {error !== undefined && <small id="entry-error" className="error-text" role="alert">{error}</small>}
+            <p className="access-register">¿Aún no tienes cuenta? <Link to="/register">Crear una cuenta</Link></p>
+          </form>
+        )}
+        <div className="privacy-note"><span aria-hidden="true">⌁</span><p><strong>La sala sigue siendo efímera.</strong><br />Tu cuenta guarda tu identidad y preferencias, no el historial de las salas.</p></div>
       </section>
       <div className="entry-doodle" aria-hidden="true"><span>〰</span><span>✦</span><span>○</span></div>
     </main>

@@ -21,10 +21,11 @@ describe.skipIf(connectionString === undefined)('PostgreSQL account persistence'
 
   it('stores accounts, synchronized settings and per-user friendship tiers', async () => {
     const suffix = randomUUID().slice(0, 8);
-    const alice = await accounts.register(`Alice_${suffix}`, 'a-secure-password-123');
-    const bob = await accounts.register(`Bob_${suffix}`, 'another-secure-password-456');
+    const alice = await accounts.register(`Alice_${suffix}`, `alice_${suffix}@example.com`, 'a-secure-password-123');
+    const bob = await accounts.register(`Bob_${suffix}`, `bob_${suffix}@example.com`, 'another-secure-password-456');
 
     await expect(accounts.authenticate(`alice_${suffix}`, 'a-secure-password-123')).resolves.toMatchObject({ id: alice.id });
+    expect(alice.email).toBe(`alice_${suffix}@example.com`);
     await expect(accounts.authenticate(`alice_${suffix}`, 'wrong-password')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
 
     const updated = await accounts.updateSettings(alice.id, {

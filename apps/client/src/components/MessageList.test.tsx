@@ -61,6 +61,8 @@ describe('MessageList', () => {
 
     expect(screen.getAllByText('Ada Lovelace')).toHaveLength(1);
     expect(container.querySelectorAll('.message--grouped')).toHaveLength(1);
+    const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    expect(styles).toMatch(/\.message:not\(\.message--group-last\) \.message-bubble::before\s*\{ display: none; \}/);
   });
 
   it('pliega texto largo y permite responder desde el icono accesible', () => {

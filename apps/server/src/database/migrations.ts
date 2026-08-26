@@ -63,4 +63,20 @@ export const databaseMigrations: DatabaseMigration[] = [
       );
     `,
   },
+  {
+    id: '002_account_email',
+    sql: `
+      ALTER TABLE users ADD COLUMN email varchar(254);
+      ALTER TABLE users ADD COLUMN email_normalized varchar(254);
+
+      UPDATE users
+      SET email = 'legacy+' || replace(id::text, '-', '') || '@chatink.invalid',
+          email_normalized = 'legacy+' || replace(id::text, '-', '') || '@chatink.invalid';
+
+      ALTER TABLE users ALTER COLUMN email SET NOT NULL;
+      ALTER TABLE users ALTER COLUMN email_normalized SET NOT NULL;
+      ALTER TABLE users ADD CONSTRAINT users_email_normalized_unique UNIQUE (email_normalized);
+      ALTER TABLE users ADD CONSTRAINT users_email_length CHECK (char_length(email) BETWEEN 3 AND 254);
+    `,
+  },
 ];

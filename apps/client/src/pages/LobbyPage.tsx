@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { RoomSummary } from '@pictochat/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Brand } from '../components/Brand';
@@ -23,6 +23,24 @@ export function LobbyPage() {
   const [error, setError] = useState<string>();
   const [loadingAction, setLoadingAction] = useState<'create' | 'join'>();
   const [mobileAction, setMobileAction] = useState<'create' | 'join'>(() => searchParams.get('room') === null ? 'create' : 'join');
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !profileMenuRef.current?.contains(event.target)) setProfileMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProfileMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [profileMenuOpen]);
 
   const loadRooms = useCallback(async () => {
     try {
@@ -82,8 +100,20 @@ export function LobbyPage() {
     <main className="lobby-page">
       <header className="app-header">
         <Brand compact />
-        <div className="header-user"><Avatar alias={session.alias} /><span><small>Alias temporal</small><strong>{session.alias}</strong></span></div>
-        <div className="header-actions"><ThemeToggle /><button type="button" className="text-button" onClick={() => { clearSession(); void navigate('/'); }}>Salir</button></div>
+        <div ref={profileMenuRef} className="profile-menu">
+          <button type="button" className="header-user" aria-haspopup="menu" aria-expanded={profileMenuOpen} onClick={() => setProfileMenuOpen((open) => !open)}>
+            <Avatar alias={session.alias} /><span className="header-user__name"><small>{session.mode === 'account' ? 'Cuenta' : 'Invitado'}</small><strong>{session.alias}</strong></span><span className="profile-menu__chevron" aria-hidden="true">⌄</span>
+          </button>
+          {profileMenuOpen && (
+            <div className="profile-menu__popover" role="menu">
+              <div className="profile-menu__identity"><Avatar alias={session.alias} /><span><strong>{session.alias}</strong><small>{session.account?.email ?? 'Sesión temporal'}</small></span></div>
+              <button type="button" role="menuitem" disabled>Perfil <small>Próximamente</small></button>
+              <button type="button" role="menuitem" disabled>Opciones <small>Próximamente</small></button>
+              <button type="button" role="menuitem" className="profile-menu__logout" onClick={() => { clearSession(); void navigate('/'); }}>Cerrar sesión</button>
+            </div>
+          )}
+        </div>
+        <div className="header-actions"><ThemeToggle /></div>
       </header>
       <div className="lobby-content">
         <section className="lobby-intro"><div className="eyebrow">ELIGE TU PUERTA</div><h1>¿Dónde quieres <span>garabatear?</span></h1><p>Crea un espacio nuevo o entra con el código que te hayan compartido.</p></section>

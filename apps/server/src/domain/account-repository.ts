@@ -14,6 +14,10 @@ export interface PublicAccount {
   createdAt: string;
 }
 
+export interface AccountIdentity extends PublicAccount {
+  email: string;
+}
+
 export interface AccountSettings {
   theme: AppTheme;
   fontScale: number;
@@ -43,6 +47,7 @@ export interface FriendRecord extends PublicAccount {
 interface UserRow {
   id: string;
   username: string;
+  email: string;
   password_hash: string;
   profile_photo_key: string | null;
   created_at: Date;
@@ -95,6 +100,14 @@ function publicAccount(row: UserRow): PublicAccount {
   };
 }
 
+function accountIdentity(row: UserRow): AccountIdentity {
+  return { ...publicAccount(row), email: row.email };
+}
+
+export function normalizeEmail(email: string): string {
+  return email.trim().normalize('NFKC').toLocaleLowerCase('en-US');
+}
+
 function settings(row: SettingsRow): AccountSettings {
   return {
     theme: row.theme,
@@ -110,7 +123,7 @@ function settings(row: SettingsRow): AccountSettings {
 export class AccountRepository {
   constructor(private readonly database: Database) {}
 
-  async register(username: string, password: string): Promise<PublicAccount> {
+  async register(username: string, email: string, password: string): Promise<AccountIdentity> {
     const id = randomUUID();
     const normalized = normalizeUsername(username);
     const passwordHash = await argon2.hash(password, passwordHashOptions);
@@ -118,26 +131,29 @@ export class AccountRepository {
     try {
       return await this.database.transaction(async (client) => {
         const result = await client.query<UserRow>(`
-          INSERT INTO users (id, username, username_normalized, password_hash)
-          VALUES ($1, $2, $3, $4)
-          RETURNING id, username, password_hash, profile_photo_key, created_at
-        `, [id, username.trim(), normalized, passwordHash]);
+          INSERT INTO users (id, username, username_normalized, email, email_normalized, password_hash)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, username, email, password_hash, profile_photo_key, created_at
+        `, [id, username.trim(), normalized, email.trim(), normalizeEmail(email), passwordHash]);
         await client.query('INSERT INTO user_settings (user_id) VALUES ($1)', [id]);
         const row = result.rows[0];
         if (row === undefined) throw new Error('No se pudo crear el usuario');
-        return publicAccount(row);
+        return accountIdentity(row);
       });
     } catch (error) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+        if ('constraint' in error && error.constraint === 'users_email_normalized_unique') {
+          throw new AccountError('EMAIL_TAKEN', 'Ese correo electronico ya esta en uso', 409);
+        }
         throw new AccountError('USERNAME_TAKEN', 'Ese nombre de usuario ya esta en uso', 409);
       }
       throw error;
     }
   }
 
-  async authenticate(username: string, password: string): Promise<PublicAccount> {
+  async authenticate(username: string, password: string): Promise<AccountIdentity> {
     const result = await this.database.query<UserRow>(`
-      SELECT id, username, password_hash, profile_photo_key, created_at
+      SELECT id, username, email, password_hash, profile_photo_key, created_at
       FROM users
       WHERE username_normalized = $1
     `, [normalizeUsername(username)]);
@@ -149,17 +165,17 @@ export class AccountRepository {
     if (!(await argon2.verify(row.password_hash, password))) {
       throw new AccountError('INVALID_CREDENTIALS', 'Usuario o contrasena incorrectos', 401);
     }
-    return publicAccount(row);
+    return accountIdentity(row);
   }
 
-  async findById(userId: string): Promise<PublicAccount> {
+  async findById(userId: string): Promise<AccountIdentity> {
     const result = await this.database.query<UserRow>(`
-      SELECT id, username, password_hash, profile_photo_key, created_at
+      SELECT id, username, email, password_hash, profile_photo_key, created_at
       FROM users WHERE id = $1
     `, [userId]);
     const row = result.rows[0];
     if (row === undefined) throw new AccountError('ACCOUNT_NOT_FOUND', 'La cuenta no existe', 404);
-    return publicAccount(row);
+    return accountIdentity(row);
   }
 
   async getSettings(userId: string): Promise<AccountSettings> {
@@ -203,7 +219,7 @@ export class AccountRepository {
   async requestFriend(userId: string, username: string): Promise<FriendRecord> {
     return this.database.transaction(async (client) => {
       const targetResult = await client.query<UserRow>(`
-        SELECT id, username, password_hash, profile_photo_key, created_at
+        SELECT id, username, email, password_hash, profile_photo_key, created_at
         FROM users WHERE username_normalized = $1
       `, [normalizeUsername(username)]);
       const target = targetResult.rows[0];
@@ -251,7 +267,7 @@ export class AccountRepository {
 
   async listFriends(userId: string): Promise<FriendRecord[]> {
     const result = await this.database.query<FriendRow>(`
-      SELECT u.id, u.username, u.password_hash, u.profile_photo_key, u.created_at,
+      SELECT u.id, u.username, u.email, u.password_hash, u.profile_photo_key, u.created_at,
              f.id AS friendship_id, f.status,
              COALESCE(fp.tier, 'normal') AS tier,
              (f.requested_by = $1) AS requested_by_me
