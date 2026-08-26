@@ -68,7 +68,7 @@ function trustedChannelForManifestUrl(value: string): UpdateChannel | undefined 
 }
 
 export function assertTrustedRelease(release: UpdateRelease, channel: UpdateChannel = 'stable'): void {
-  const repositoryPath = channel === 'preproduction' ? '/A1VAR0W/Chat-Ink' : '/A1VAR0W/ChatInk-Releases';
+  const repositoryPath = channel === 'preproduction' ? '/A1VAR0W/ChatInk-Source' : '/A1VAR0W/ChatInk-Releases';
   const tag = encodeURIComponent(release.tag);
   const version = encodeURIComponent(release.version);
   if (release.tag !== `v${release.version}` || release.versionCode !== versionCode(release.version)) {

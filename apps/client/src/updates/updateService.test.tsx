@@ -70,10 +70,10 @@ function preproductionRelease(overrides: Partial<UpdateRelease> = {}): UpdateRel
       tag,
       version,
       versionCode: 1_010_001,
-      releaseUrl: `https://github.com/A1VAR0W/Chat-Ink/releases/tag/${tag}`,
+      releaseUrl: `https://github.com/A1VAR0W/ChatInk-Source/releases/tag/${tag}`,
       platforms: {
-        android: { downloadUrl: `https://github.com/A1VAR0W/Chat-Ink/releases/download/${tag}/ChatInk-${version}.apk`, sha256: 'c'.repeat(64), size: 1_024 },
-        ios: { downloadUrl: `https://github.com/A1VAR0W/Chat-Ink/releases/download/${tag}/ChatInk-${version}.ipa`, sha256: 'd'.repeat(64), size: 2_048, sourceUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json' },
+        android: { downloadUrl: `https://github.com/A1VAR0W/ChatInk-Source/releases/download/${tag}/ChatInk-${version}.apk`, sha256: 'c'.repeat(64), size: 1_024 },
+        ios: { downloadUrl: `https://github.com/A1VAR0W/ChatInk-Source/releases/download/${tag}/ChatInk-${version}.ipa`, sha256: 'd'.repeat(64), size: 2_048, sourceUrl: 'https://chat-ink.tail552c89.ts.net:8443/preproduction-sidestore-source.json' },
       },
     }),
     ...overrides,

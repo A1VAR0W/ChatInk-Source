@@ -65,7 +65,7 @@ services:
       MAX_FILE_BYTES: ${MAX_FILE_BYTES:-26214400}
       MIN_SUPPORTED_CLIENT_VERSION: ${MIN_SUPPORTED_CLIENT_VERSION:-0.0.0}
       LATEST_CLIENT_VERSION: ${LATEST_CLIENT_VERSION:-0.0.0}
-      CLIENT_RELEASE_URL: ${CLIENT_RELEASE_URL:-https://github.com/A1VAR0W/Chat-Ink/releases}
+      CLIENT_RELEASE_URL: ${CLIENT_RELEASE_URL:-https://github.com/A1VAR0W/ChatInk-Source/releases}
     secrets:
       - token_secret
       - database_url

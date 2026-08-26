@@ -1,6 +1,6 @@
 # Releases oficiales de ChatInk
 
-Este documento define el único flujo de distribución pública. El repositorio `A1VAR0W/Chat-Ink` permanece privado y es la única fuente de verdad. `A1VAR0W/ChatInk-Releases` es público y solo contiene metadatos de distribución, un icono público y GitHub Release assets; nunca código fuente, configuraciones del servidor, archivos `.env`, certificados, keystores o tokens.
+Este documento define el flujo de distribución pública. `A1VAR0W/ChatInk-Source` es la fuente de verdad pública y contiene solo código y plantillas sin secretos. `A1VAR0W/ChatInk-Releases` contiene únicamente metadatos de distribución, un icono público y GitHub Release assets; nunca configuraciones del servidor, archivos `.env` reales, certificados, keystores o tokens.
 
 ## Flujo
 
@@ -56,7 +56,7 @@ versionCode de Producción    = (posición × 2) + 2
 
 ## Configuración de GitHub
 
-En `A1VAR0W/Chat-Ink`, configura estos secretos de repositorio:
+En `A1VAR0W/ChatInk-Source`, configura estos secretos de entorno:
 
 | Secreto | Finalidad |
 | --- | --- |
@@ -66,9 +66,9 @@ En `A1VAR0W/Chat-Ink`, configura estos secretos de repositorio:
 | `ANDROID_KEY_PASSWORD` | Contraseña de la clave privada. |
 | `RELEASES_TOKEN` | Fine-grained PAT que solo puede escribir en `A1VAR0W/ChatInk-Releases`. |
 
-El token `RELEASES_TOKEN` debe ser un fine-grained PAT con acceso únicamente al repositorio `A1VAR0W/ChatInk-Releases` y permiso de repositorio **Contents: Read and write**. Ese permiso permite crear la GitHub Release, subir assets y confirmar el commit de metadatos; no concede acceso al código privado. Define una caducidad corta y rótalo antes de que expire: crea el nuevo token, reemplaza el secreto en `ChatInk`, ejecuta un `dry-run` y revoca el anterior.
+El token `RELEASES_TOKEN` debe ser un fine-grained PAT con acceso únicamente al repositorio `A1VAR0W/ChatInk-Releases` y permiso de repositorio **Contents: Read and write**. Ese permiso permite crear la GitHub Release, subir assets y confirmar el commit de metadatos. Define una caducidad corta y rótalo antes de que expire: crea el nuevo token, reemplaza el secreto en `ChatInk-Source`, ejecuta un `dry-run` y revoca el anterior.
 
-En los entornos GitHub `production` y, si vas a usar builders manuales, `development`, configura estas **variables** públicas:
+En los entornos GitHub `production` y `preproduction`, configura estas **variables** públicas:
 
 | Variable | Finalidad |
 | --- | --- |
