@@ -1,6 +1,6 @@
 {
   "name": "pictochat-mvp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Chat efimero de texto, dibujo y archivos para web, Android e iOS.",

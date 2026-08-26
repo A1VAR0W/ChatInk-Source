@@ -90,10 +90,6 @@ export function UpdateExperience() {
       return;
     }
     if (updates.installed?.platform === 'ios') {
-      if (isPreproduction) {
-        openExternal(release.releaseUrl);
-        return;
-      }
       void copyIosSource();
       return;
     }
@@ -105,7 +101,7 @@ export function UpdateExperience() {
     : updates.installed?.platform === 'android'
       ? 'Descargar APK'
       : updates.installed?.platform === 'ios'
-        ? isPreproduction ? 'Abrir release privada' : 'Copiar fuente de SideStore'
+        ? 'Copiar fuente de SideStore'
         : 'Ver información de la release';
 
   return (
@@ -142,10 +138,16 @@ export function UpdateExperience() {
                     <ul>{release.notes.map((note) => <li key={note}>{note}</li>)}</ul>
                   </section>
                 )}
-                {updates.installed?.platform === 'android' && <p className="update-dialog__hint">Android puede pedirte autorización para instalar desde esta fuente. ChatInk nunca instala un APK en segundo plano.</p>}
-                {updates.installed?.platform === 'ios' && !isPreproduction && (
+                {updates.installed?.platform === 'android' && (
+                  <section className="update-dialog__steps" aria-label="Pasos para actualizar en Android">
+                    <h3>Cómo actualizar en Android</h3>
+                    <ol><li>Pulsa «Descargar APK».</li><li>Abre el archivo descargado y permite instalar desde esta fuente si Android lo solicita.</li><li>Instala la nueva versión y vuelve a abrir ChatInk.</li></ol>
+                    <p className="update-dialog__hint">ChatInk nunca instala un APK en segundo plano.</p>
+                  </section>
+                )}
+                {updates.installed?.platform === 'ios' && (
                   <section className="update-dialog__ios" aria-label="Instrucciones de SideStore o AltStore">
-                    <p>Abre SideStore o AltStore, añade esta fuente y deja que firme el IPA con tu cuenta Apple. No es una instalación directa ni de App Store.</p>
+                    <p>{isPreproduction ? 'En preproducción, añade esta fuente privada en SideStore o AltStore y deja que firme el IPA con tu cuenta Apple.' : 'Abre SideStore o AltStore, añade esta fuente y deja que firme el IPA con tu cuenta Apple.'} No es una instalación directa ni de App Store.</p>
                     <label htmlFor="sidestore-source">URL de la fuente</label>
                     <input id="sidestore-source" readOnly value={release.platforms.ios.sourceUrl} onFocus={(event) => event.currentTarget.select()} />
                     {iosCopyState === 'copied' && <p className="update-dialog__success" role="status">URL copiada. Pégala en SideStore o AltStore.</p>}

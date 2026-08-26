@@ -42,6 +42,7 @@ describe('MessageList', () => {
 
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
     expect(styles).toMatch(/\.message-bubble\s*\{[^}]*width: fit-content;[^}]*max-width: min\(82%, 36rem\)/);
+    expect(styles).toMatch(/\.message-bubble::before\s*\{[^}]*clip-path: polygon/);
     expect(styles).toMatch(/\.message-text__content\s*\{[^}]*overflow-wrap: break-word;[^}]*word-break: normal;[^}]*hyphens: none;[^}]*white-space: pre-wrap/);
     expect(styles).not.toMatch(/\.message-text__content\s*\{[^}]*word-break: break-all/);
     expect(styles).not.toMatch(/\.message-text__content\s*\{[^}]*overflow-wrap: anywhere/);

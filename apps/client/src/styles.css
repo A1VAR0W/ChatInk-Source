@@ -235,7 +235,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .empty-state > span { width: 72px; height: 72px; display: grid; place-items: center; margin: 0 auto 18px; border-radius: 23px; background: var(--primary-soft); color: var(--primary); font-size: 31px; transform: rotate(-5deg); }
 .empty-state h2 { color: var(--ink); margin-bottom: 7px; }
 .message-list { width: min(850px, calc(100% - 40px)); max-width: 100%; min-width: 0; min-height: 100%; margin: 0 auto; padding: 30px 0; overflow-x: hidden; }
-.message-group { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin: 0 0 14px; scroll-margin-block: 40vh; }
+.message-group { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin: 0 0 16px; scroll-margin-block: 40vh; }
 .message-group--own { align-items: flex-end; }
 .message-group__items { display: flex; flex-direction: column; align-items: flex-start; width: 100%; gap: 2px; max-width: 100%; }
 .message-group--own .message-group__items { align-items: flex-end; }
@@ -248,8 +248,10 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .message-swipe-target { width: 100%; display: flex; align-items: center; justify-content: flex-start; gap: 7px; max-width: 100%; transform: translateX(var(--reply-swipe-offset, 0)); transition: transform 180ms var(--ease-out); touch-action: pan-y; }
 .message-swipe-target--own { justify-content: flex-end; }
 .message-swipe-target--dragging { transition: none; }
-.message-bubble { width: fit-content; min-width: 0; max-width: min(82%, 36rem); border: 1px solid var(--line); border-radius: 5px 17px 17px 17px; background: var(--surface); box-shadow: 0 3px 12px rgb(30 25 67 / 5%); overflow: hidden; }
-.message--own .message-bubble { border-radius: 17px 5px 17px 17px; background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 20%, var(--line)); }
+.message-bubble { position: relative; width: fit-content; min-width: 0; max-width: min(82%, 36rem); border: 1px solid color-mix(in srgb, var(--line) 72%, transparent); border-radius: 18px 18px 18px 6px; background: var(--surface-raised); box-shadow: 0 2px 8px rgb(30 25 67 / 6%); overflow: hidden; }
+.message-bubble::before { content: ""; position: absolute; left: -1px; bottom: -1px; width: 12px; height: 12px; background: inherit; clip-path: polygon(0 0, 100% 100%, 0 100%); }
+.message--own .message-bubble { border-radius: 18px 18px 6px 18px; background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 20%, var(--line)); }
+.message--own .message-bubble::before { right: -1px; left: auto; transform: scaleX(-1); }
 .message:not(.message--group-last) .message-bubble { border-bottom-left-radius: 6px; }
 .message--grouped:not(.message--own) .message-bubble { border-top-left-radius: 6px; }
 .message--own:not(.message--group-last) .message-bubble { border-bottom-right-radius: 6px; }
@@ -382,6 +384,10 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .update-dialog__notes { padding: 15px 16px; border-radius: 14px; background: var(--primary-soft); }
 .update-dialog__notes h3 { margin: 0 0 8px; font-size: 14px; }
 .update-dialog__notes ul { display: grid; gap: 7px; margin: 0; padding-left: 19px; color: var(--ink); font-size: 14px; line-height: 1.45; }
+.update-dialog__steps { margin-top: 16px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--line)); border-radius: 14px; background: color-mix(in srgb, var(--primary-soft) 58%, var(--surface-raised)); }
+.update-dialog__steps h3 { margin: 0 0 8px; font-size: 14px; }
+.update-dialog__steps ol { display: grid; gap: 7px; margin: 0; padding-left: 20px; color: var(--ink); font-size: 13px; line-height: 1.45; }
+.update-dialog__steps .update-dialog__hint { margin-top: 10px; }
 .update-dialog__hint, .update-dialog__ios > p { margin: 16px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.45; }
 .update-dialog__ios { margin-top: 16px; }
 .update-dialog__ios label { display: block; margin: 14px 0 6px; color: var(--ink-muted); font-size: 11px; font-weight: 750; }

@@ -115,7 +115,6 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
   const [mandatory, setMandatory] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [webUpdateAvailable, setWebUpdateAvailable] = useState(false);
-  const [launchCheckComplete, setLaunchCheckComplete] = useState(() => !Capacitor.isNativePlatform());
 
   const loadInstalled = useCallback(async (): Promise<InstalledVersion> => {
     if (installedRef.current !== undefined) return installedRef.current;
@@ -151,8 +150,6 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
       setMandatory(false);
       setDialogOpen(false);
       setStatus(error instanceof UpdateCheckError && (error.code === 'network' || error.code === 'timeout') ? 'offline' : 'error');
-    } finally {
-      setLaunchCheckComplete(true);
     }
   }, [fetchManifest, loadInstalled]);
 
@@ -183,13 +180,10 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
     let cancelled = false;
     let timer: number | undefined;
     void loadInstalled().then((current) => {
-      // Una app nativa comprueba cada vez que se abre. No mostramos ningún
-      // control manual en el chat: la versión nueva llega como aviso.
+      // La app nativa comprueba su compatibilidad al intentar entrar con el
+      // alias. Así la pantalla inicial queda disponible inmediatamente.
       if (cancelled) return;
-      if (current.platform === 'web' || !automaticChecksEnabled()) {
-        setLaunchCheckComplete(true);
-        return;
-      }
+      if (current.platform !== 'web' || !automaticChecksEnabled()) return;
       if (launchCheckStarted.current) return;
       launchCheckStarted.current = true;
       timer = window.setTimeout(() => {
@@ -205,7 +199,6 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
 
   useEffect(() => {
     const onUnsupported = () => {
-      setLaunchCheckComplete(false);
       void checkForUpdates(true);
     };
     window.addEventListener(CLIENT_VERSION_UNSUPPORTED_EVENT, onUnsupported);
@@ -253,10 +246,9 @@ export function UpdateProvider({ children, fetchManifest = fetchUpdateManifest }
     applyWebUpdate,
   }), [applyWebUpdate, channel, checkForUpdates, closeDialog, dialogOpen, dismissUpdate, installed, mandatory, release, status, webUpdateAvailable]);
 
-  const blockUntilNativePolicyChecked = !launchCheckComplete && (installed === undefined || installed.platform !== 'web');
   return (
     <UpdateContext.Provider value={value}>
-      {blockUntilNativePolicyChecked ? <div className="app-loading" role="status">Comprobando la compatibilidad de ChatInk…</div> : children}
+      {children}
       <UpdateExperience />
     </UpdateContext.Provider>
   );
