@@ -33,7 +33,7 @@ ENV NODE_ENV=production \
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends gosu \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --uid 10001 appuser
+    && useradd --create-home --uid 1000 appuser
 COPY --from=builder --chown=appuser:appuser /app/package.json /app/package-lock.json ./
 COPY --from=builder --chown=appuser:appuser /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appuser /app/apps/server/package.json ./apps/server/package.json
