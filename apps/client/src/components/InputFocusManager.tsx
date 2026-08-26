@@ -12,27 +12,25 @@ function bringIntoView(field: HTMLElement, block: ScrollLogicalPosition) {
   const top = viewport?.offsetTop ?? 0;
   const bottom = top + (viewport?.height ?? window.innerHeight);
   if (bounds.top >= top + 12 && bounds.bottom <= bottom - 12) return;
-  field.scrollIntoView({ block, inline: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  // El teclado es una interacción recurrente: el desplazamiento debe ocurrir
+  // en el mismo gesto, sin una animación que se perciba como retraso en iOS.
+  field.scrollIntoView({ block, inline: 'nearest', behavior: 'auto' });
 }
 
 export function InputFocusManager() {
   useEffect(() => {
     const focusedOnce = new WeakSet<HTMLElement>();
     let active: HTMLInputElement | HTMLTextAreaElement | undefined;
-    let focusTimers: number[] = [];
-
-    const clearTimers = () => {
-      for (const timer of focusTimers) window.clearTimeout(timer);
-      focusTimers = [];
-    };
     const onFocus = (event: FocusEvent) => {
       const field = editableField(event.target);
       if (field === undefined) return;
       active = field;
       if (focusedOnce.has(field)) return;
       focusedOnce.add(field);
-      clearTimers();
-      focusTimers = [40, 280].map((delay) => window.setTimeout(() => bringIntoView(field, 'center'), delay));
+      bringIntoView(field, 'center');
+      // Safari recalcula el viewport visual justo después de abrir el teclado.
+      // Una comprobación en el siguiente frame evita el salto lento anterior.
+      window.requestAnimationFrame(() => bringIntoView(field, 'center'));
     };
     const onInput = (event: Event) => {
       const field = editableField(event.target);
@@ -40,7 +38,6 @@ export function InputFocusManager() {
     };
     const onBlur = (event: FocusEvent) => {
       if (event.target === active) active = undefined;
-      clearTimers();
     };
     const onViewportResize = () => {
       if (active !== undefined) window.requestAnimationFrame(() => bringIntoView(active!, 'nearest'));
@@ -51,7 +48,6 @@ export function InputFocusManager() {
     document.addEventListener('focusout', onBlur);
     window.visualViewport?.addEventListener('resize', onViewportResize);
     return () => {
-      clearTimers();
       document.removeEventListener('focusin', onFocus);
       document.removeEventListener('input', onInput);
       document.removeEventListener('focusout', onBlur);

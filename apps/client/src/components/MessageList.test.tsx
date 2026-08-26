@@ -63,6 +63,8 @@ describe('MessageList', () => {
     expect(container.querySelectorAll('.message--grouped')).toHaveLength(1);
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
     expect(styles).toMatch(/\.message:not\(\.message--group-last\) \.message-bubble::before\s*\{ display: none; \}/);
+    expect(styles).toMatch(/\.message--grouped:not\(\.message--own\) \.message-bubble\s*\{ border-top-left-radius: 18px;/);
+    expect(styles).toMatch(/\.message--grouped\.message--own \.message-bubble\s*\{ border-top-right-radius: 18px;/);
   });
 
   it('pliega texto largo y permite responder desde el icono accesible', () => {

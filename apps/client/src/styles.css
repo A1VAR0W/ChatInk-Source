@@ -176,7 +176,9 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .privacy-note strong { color: var(--ink); }
 .entry-doodle { position: absolute; right: 6vw; bottom: 6vh; color: var(--primary); font-size: 60px; display: flex; gap: 26px; transform: rotate(-7deg); opacity: .35; }
 
-.app-header, .room-header { width: 100%; max-width: 100%; min-width: 0; min-height: 72px; padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 18px; overflow: hidden; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 20; }
+.app-header, .room-header { width: 100%; max-width: 100%; min-width: 0; min-height: 72px; padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 18px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 20; }
+.app-header { overflow: visible; }
+.room-header { overflow: hidden; }
 .profile-menu { position: relative; margin-left: auto; }
 .header-user { display: flex; gap: 9px; align-items: center; min-height: 46px; padding: 4px 7px 4px 4px; border: 1px solid transparent; border-radius: 13px; background: transparent; cursor: pointer; text-align: left; transition: background 150ms ease, border-color 150ms ease, transform 150ms var(--ease-out); }
 .header-user:active { transform: scale(.98); }
@@ -288,12 +290,16 @@ input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: .7
 .message-bubble { position: relative; width: fit-content; min-width: 0; max-width: min(82%, 36rem); border: 1px solid color-mix(in srgb, var(--line) 72%, transparent); border-radius: 18px 18px 18px 6px; background: var(--surface-raised); box-shadow: 0 2px 8px rgb(30 25 67 / 6%); overflow: hidden; }
 .message-bubble::before { content: ""; position: absolute; left: -1px; bottom: -1px; width: 12px; height: 12px; background: inherit; clip-path: polygon(0 0, 100% 100%, 0 100%); }
 .message:not(.message--group-last) .message-bubble::before { display: none; }
+.message--grouped .message-bubble::before { display: none; }
 .message--own .message-bubble { border-radius: 18px 18px 6px 18px; background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 20%, var(--line)); }
 .message--own .message-bubble::before { right: -1px; left: auto; transform: scaleX(-1); }
-.message:not(.message--group-last) .message-bubble { border-bottom-left-radius: 6px; }
-.message--grouped:not(.message--own) .message-bubble { border-top-left-radius: 6px; }
-.message--own:not(.message--group-last) .message-bubble { border-bottom-right-radius: 6px; }
-.message--grouped.message--own .message-bubble { border-top-right-radius: 6px; }
+/* En una secuencia, el borde que mira al exterior conserva siempre su curva.
+   Solo se compactan las esquinas que quedan hacia el interior del grupo. */
+.message:not(.message--own):not(.message--group-last) .message-bubble { border-bottom-left-radius: 18px; border-bottom-right-radius: 6px; }
+.message--grouped:not(.message--own) .message-bubble { border-top-left-radius: 18px; border-top-right-radius: 6px; }
+.message--grouped.message--group-last:not(.message--own) .message-bubble { border-bottom-left-radius: 18px; }
+.message--own:not(.message--group-last) .message-bubble { border-bottom-right-radius: 18px; border-bottom-left-radius: 6px; }
+.message--grouped.message--own .message-bubble { border-top-right-radius: 18px; border-top-left-radius: 6px; }
 .message--failed { opacity: .65; }
 .message-text { min-width: 0; padding: 9px 13px 8px; }
 .message-text__content { margin: 0; overflow-wrap: break-word; word-break: normal; hyphens: none; white-space: pre-wrap; font-size: max(16px, var(--message-text-size)); line-height: var(--message-line-height); }
